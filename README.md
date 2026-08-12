@@ -140,12 +140,34 @@ Couleurs chaudes de quartier populaire — ocres, terres cuites, verts fanés,
 bleus de nuit.
 
 Le trait est celui de l'animation urbaine française : **contours à l'encre
-épais**, aplats francs, une seule ombre portée par volume. Les proportions
-sont assumées — membres longs et fins, **mains larges à cinq doigts** qui
-parlent autant que les visages, mâchoires marquées, nez caractériels,
-casquettes et lunettes noires. Personne n'est joli, tout le monde est
-reconnaissable : mâchoire, nez, oreilles, coupe, carrure et démarche sont
-tirés de l'identifiant de l'habitant, donc stables pour toute la partie.
+épais**, aplats francs, une seule ombre portée par volume. Personne n'est
+joli, tout le monde est reconnaissable : mâchoire, nez, oreilles, coupe,
+carrure, col, manches et démarche sont tirés de l'identifiant de l'habitant,
+donc stables pour toute la partie.
+
+### Comment un corps est construit
+
+Un membre entier est **un seul tracé**. C'est la règle qui décide de tout :
+tant que la cuisse et le mollet étaient deux capsules autonomes, chaque
+articulation laissait voir deux bouts arrondis superposés — la rotule du
+pantin articulé. En assemblant les segments dans le même chemin, en encrant
+le contour d'un trait épais puis en remplissant par-dessus, les coutures
+internes disparaissent et le membre devient continu.
+
+Le reste suit le même principe — on construit le corps, on l'habille
+ensuite :
+
+- **Un buste, pas un trapèze.** Trapèzes qui remontent vers le cou,
+  deltoïdes, creux de taille, hanches.
+- **Un cou**, dessiné avant le buste, que le col vient recouvrir à la base.
+- **Des vêtements.** Le bras est tracé en entier couleur peau, puis la
+  manche est posée dessus : on obtient une vraie manche avec un bord, courte
+  ou longue, au lieu d'un tube bicolore. Col rond, en V ou de chemise, bas de
+  vêtement marqué d'une ligne, ourlet de pantalon au-dessus de la chaussure.
+- **De la profondeur.** Le bras du fond passe derrière le buste.
+- **Un visage qui se lit sur toutes les carnations.** Sourcils, nez et
+  paupières sont à l'encre, pas en teinte de peau ou de cheveux — sinon ils
+  disparaissent sur les peaux foncées et sur les blonds.
 
 ### L'animation
 

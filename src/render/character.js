@@ -37,6 +37,9 @@ export function appearance(person) {
     cap: hashPick(id * 61 + 3, 100) < 22 && person.age < 62,
     beard: person.gender === 'm' && person.age > 22 && hashPick(id * 19 + 7, 100) < 42,
     stubble: person.gender === 'm' && person.age > 19 && hashPick(id * 71 + 5, 100) < 45,
+    // L'habillement : col et manches suffisent à faire un vêtement.
+    collar: hashPick(id * 83 + 2, 3),        // 0 rond, 1 en V, 2 chemise
+    longSleeve: hashPick(id * 97 + 1, 100) < 45,
   };
   if (person.age > 62 && hashPick(id * 29, 100) < 75) {
     look.hair = person.age > 75 ? '#ded9d2' : '#b0aaa2';
@@ -124,7 +127,7 @@ function drawHand(ctx, x, y, angle, open, skin, size, outline = true) {
   ctx.translate(x, y);
   ctx.rotate(angle);
   const s = size;
-  const spread = 0.3 + open * 0.62;
+  const spread = 0.26 + open * 0.6;
 
   // Un seul chemin pour toute la main : paume + doigts + pouce. On encre
   // d'abord d'un trait épais, puis on remplit par-dessus — le trait ne
@@ -148,7 +151,7 @@ function drawHand(ctx, x, y, angle, open, skin, size, outline = true) {
   // Quatre doigts en éventail. L'index et l'auriculaire sont plus courts.
   for (let i = 0; i < 4; i++) {
     const a = (i - 1.5) * spread * 0.44 - Math.PI / 2;
-    const len = s * (i === 0 || i === 3 ? 1.55 : 1.95);
+    const len = s * (i === 0 || i === 3 ? 1.35 : 1.65);
     const knuckleX = Math.cos(a) * s * 0.5;
     const knuckleY = Math.sin(a) * s * 0.5 + s * 0.1;
     capsule(knuckleX, knuckleY, Math.cos(a) * len, Math.sin(a) * len + s * 0.1, s * 0.24);
@@ -157,12 +160,12 @@ function drawHand(ctx, x, y, angle, open, skin, size, outline = true) {
   const ta = -Math.PI / 2 - (0.95 + open * 0.55);
   capsule(0, s * 0.2, Math.cos(ta) * s * 1.15, Math.sin(ta) * s * 0.8 + s * 0.2, s * 0.27);
   // Paume.
-  ctx.moveTo(s * 0.72, s * 0.15);
-  ctx.ellipse(0, s * 0.15, s * 0.72, s * 0.8, 0, 0, Math.PI * 2);
+  ctx.moveTo(s * 0.66, s * 0.12);
+  ctx.ellipse(0, s * 0.12, s * 0.66, s * 0.74, 0, 0, Math.PI * 2);
 
   if (outline) {
     ctx.strokeStyle = INK;
-    ctx.lineWidth = LINE * 1.9;
+    ctx.lineWidth = LINE * 1.6;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.stroke();
@@ -181,6 +184,110 @@ export function roundRect(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y + h, x, y, rr);
   ctx.arcTo(x, y, x + w, y, rr);
   ctx.closePath();
+}
+
+// --- Construction du corps ---------------------------------------------------
+//
+// Règle qui change tout : un membre entier est UN seul chemin. Avant, chaque
+// segment était une capsule autonome, donc chaque articulation laissait voir
+// deux bouts arrondis superposés — la rotule de pantin articulé. Ici on
+// assemble cuisse et mollet dans le même tracé, on encre le contour d'un
+// trait épais, puis on remplit par-dessus : les coutures internes
+// disparaissent et le membre devient continu.
+
+/** Ajoute une capsule au chemin courant, sans l'ouvrir ni le fermer. */
+function capsulePath(ctx, ax, ay, bx, by, wa, wb = wa) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const nx = -uy;
+  const ny = ux;
+  ctx.moveTo(ax + nx * wa, ay + ny * wa);
+  ctx.lineTo(bx + nx * wb, by + ny * wb);
+  ctx.arc(bx, by, wb, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true);
+  ctx.lineTo(ax - nx * wa, ay - ny * wa);
+  ctx.arc(ax, ay, wa, Math.atan2(-ny, -nx), Math.atan2(ny, nx), true);
+  ctx.closePath();
+}
+
+/** Encre puis remplit : la seule façon d'obtenir une silhouette sans couture. */
+function solid(ctx, build, color, outline = true, lw = LINE * 1.9) {
+  ctx.beginPath();
+  build();
+  if (outline) {
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = lw;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+/**
+ * Une jambe entière : cuisse + mollet en un tracé, puis la chaussure.
+ * Le genou n'est plus une bille, c'est un simple changement de direction.
+ */
+function drawLeg(ctx, hx, hy, kx, ky, fx, fy, B, trousers, outline) {
+  solid(ctx, () => {
+    capsulePath(ctx, hx, hy, kx, ky, 6.4 * B, 5.2 * B);
+    capsulePath(ctx, kx, ky, fx, fy, 5.2 * B, 4.1 * B);
+  }, trousers, outline);
+  // Ourlet du pantalon, juste au-dessus de la chaussure.
+  if (outline) {
+    const a = Math.atan2(fy - ky, fx - kx);
+    const ox = fx - Math.cos(a) * 5;
+    const oy = fy - Math.sin(a) * 5;
+    ctx.beginPath();
+    ctx.moveTo(ox - Math.sin(a) * 4.2 * B, oy + Math.cos(a) * 4.2 * B);
+    ctx.lineTo(ox + Math.sin(a) * 4.2 * B, oy - Math.cos(a) * 4.2 * B);
+    ink(ctx, LINE * 0.75);
+    ctx.stroke();
+  }
+}
+
+/**
+ * Un bras entier : bras + avant-bras en un tracé couleur peau, puis la
+ * manche par-dessus. C'est l'ordre du dessinateur — on construit le corps,
+ * on l'habille ensuite — et c'est ce qui donne une vraie manche avec un
+ * bord, au lieu d'un tube bicolore.
+ */
+function drawArm(ctx, sx, sy, shoulder, elbow, open, B, sleeve, skin, outline, longSleeve) {
+  const upper = 20 * B;
+  const fore = 19 * B;
+  const ex = sx + Math.sin(shoulder) * upper;
+  const ey = sy + Math.cos(shoulder) * upper;
+  const wristA = shoulder + elbow;
+  const wx = ex + Math.sin(wristA) * fore;
+  const wy = ey + Math.cos(wristA) * fore;
+
+  solid(ctx, () => {
+    capsulePath(ctx, sx, sy, ex, ey, 5.2 * B, 4.3 * B);
+    capsulePath(ctx, ex, ey, wx, wy, 4.3 * B, 3.5 * B);
+  }, skin, outline);
+
+  // La manche : elle s'arrête au coude (courte) ou au poignet (longue).
+  const endX = longSleeve ? ex + (wx - ex) * 0.82 : sx + (ex - sx) * 0.62;
+  const endY = longSleeve ? ey + (wy - ey) * 0.82 : sy + (ey - sy) * 0.62;
+  const endW = longSleeve ? 3.9 * B : 4.9 * B;
+  solid(ctx, () => {
+    capsulePath(ctx, sx, sy, endX, endY, 5.9 * B, endW);
+  }, sleeve, outline, LINE * 1.5);
+
+  drawHand(ctx, wx, wy, wristA + Math.PI, open, skin, 4.3 * B, outline);
+}
+
+function shoe(ctx, x, y, side, silhouette) {
+  solid(ctx, () => {
+    ctx.moveTo(x - 4.2 * side, y - 5);
+    ctx.quadraticCurveTo(x - 5.4 * side, y + 1.6, x + 3.5 * side, y + 1.8);
+    ctx.quadraticCurveTo(x + 9.5 * side, y + 1.6, x + 8.8 * side, y - 2.2);
+    ctx.quadraticCurveTo(x + 6 * side, y - 5.4, x + 2.5 * side, y - 5.2);
+    ctx.closePath();
+  }, silhouette ? INK : PALETTE.frameDark, !silhouette, LINE * 1.6);
 }
 
 // --- Le pantin --------------------------------------------------------------
@@ -221,121 +328,144 @@ export function drawCharacter(ctx, person, x, y, h, o = {}) {
   const hipY = -46 + drop;
   const shoulderY = (-78 + drop * 0.9) * c.squash;
   const headR = 12 * (0.9 + B * 0.12);
-  const headY = shoulderY - 8 - headR;
-  const torsoW = 17 * B;
+  const headY = shoulderY - 14 - headR;
+  const torsoW = 18 * B;
+  const outline = !silhouette;
   const skin = silhouette ? INK : look.skin;
   const top = silhouette ? INK : look.top;
   const bottom = silhouette ? INK : look.bottom;
+  const spread = 4.8 * B;
 
-  // --- Jambes ---
-  const spread = 4.5 * B;
-  if (sit > 0.5) {
-    for (const side of [-1, 1]) {
-      const kx = side * spread - 15;
-      limb(ctx, side * spread, hipY, kx, hipY + 3, 6 * B, 5.5 * B, bottom, !silhouette);
-      limb(ctx, kx, hipY + 3, kx - 1, 0, 5.5 * B, 4.6 * B, bottom, !silhouette);
-      shoe(ctx, kx - 1, 0, side, silhouette);
+  // Le bras du fond passe derrière le buste : sans ça, tout est à plat.
+  const farArm = () => drawArm(ctx, -torsoW * 0.44, shoulderY + 6,
+    c.armL, c.elbowL, c.handL, B, top, skin, outline, look.longSleeve);
+  const nearArm = () => drawArm(ctx, torsoW * 0.44, shoulderY + 6,
+    c.armR, c.elbowR, c.handR, B, top, skin, outline, look.longSleeve);
+
+  // 1. Bras arrière.
+  farArm();
+
+  // 2. Jambes. Le genou part légèrement en avant : une jambe parfaitement
+  //    droite n'existe pas debout.
+  const legGeom = (side, ang) => {
+    const hx = side * spread;
+    if (sit > 0.5) {
+      const kx = hx - 16;
+      return { hx, hy: hipY, kx, ky: hipY + 3, fx: kx - 1, fy: 0 };
     }
-  } else {
-    for (const [side, ang] of [[-1, c.legL], [1, c.legR]]) {
-      const hx = side * spread;
-      // Genou légèrement en avant : une jambe droite fait pantin de bois.
-      const kx = hx + Math.sin(ang) * 15;
-      const ky = hipY + (0 - hipY) * 0.52 - Math.abs(Math.sin(ang)) * 3;
-      const fx = hx + Math.sin(ang) * 27;
-      const fy = -Math.abs(Math.sin(ang)) * 7;
-      limb(ctx, hx, hipY, kx, ky, 6.2 * B, 5 * B, bottom, !silhouette);
-      limb(ctx, kx, ky, fx, fy, 5 * B, 4.2 * B, bottom, !silhouette);
-      shoe(ctx, fx, fy, side, silhouette);
-    }
+    return {
+      hx,
+      hy: hipY,
+      kx: hx + Math.sin(ang) * 14 + 1.5,
+      ky: hipY * 0.47 - Math.abs(Math.sin(ang)) * 3,
+      fx: hx + Math.sin(ang) * 27,
+      fy: -Math.abs(Math.sin(ang)) * 7,
+    };
+  };
+  const legs = [[-1, c.legL], [1, c.legR]].map(([side, ang]) => ({ side, ...legGeom(side, ang) }));
+  // La jambe du fond d'abord, pour la même raison que le bras.
+  for (const L of legs) {
+    drawLeg(ctx, L.hx, L.hy, L.kx, L.ky, L.fx, L.fy, B, bottom, outline);
+    shoe(ctx, L.fx, L.fy, L.side, silhouette);
   }
 
-  // --- Buste ---
+  // 3. Bassin : il relie les deux cuisses, sinon le personnage est fendu.
+  solid(ctx, () => {
+    capsulePath(ctx, -spread, hipY - 1, spread, hipY - 1, 7 * B);
+  }, bottom, outline);
+
+  // 4. Cou, avant le buste : le col viendra le recouvrir à la base.
   ctx.save();
   ctx.translate(0, hipY);
-  ctx.rotate(c.lean * 0.55 + c.twist * 0.2);
+  ctx.rotate(c.lean * 0.5 + c.twist * 0.18);
   ctx.translate(0, -hipY);
+  solid(ctx, () => {
+    capsulePath(ctx, 0, headY + headR * 0.5, 0, shoulderY + 4, 4.4 * B, 5.6 * B);
+  }, skin, outline);
 
-  const sy = shoulderY;
-  ctx.beginPath();
-  // Un buste en trapèze : épaules larges, taille étroite.
-  ctx.moveTo(-torsoW * 0.52, sy + 2);
-  ctx.quadraticCurveTo(-torsoW * 0.62, (sy + hipY) / 2, -torsoW * 0.4, hipY + 3);
-  ctx.lineTo(torsoW * 0.4, hipY + 3);
-  ctx.quadraticCurveTo(torsoW * 0.62, (sy + hipY) / 2, torsoW * 0.52, sy + 2);
-  ctx.quadraticCurveTo(0, sy - 4, -torsoW * 0.52, sy + 2);
-  ctx.closePath();
-  paint(ctx, top, !silhouette);
+  // 5. Le buste : épaules, taille, hanches. Plus jamais un trapèze.
+  const shW = torsoW * 0.62;   // demi-largeur aux épaules
+  const waW = torsoW * 0.40;   // à la taille
+  const hiW = torsoW * 0.50;   // aux hanches
+  const waistY = (shoulderY + hipY) / 2 + 2;
+  const hemY = hipY + 5;
+  solid(ctx, () => {
+    ctx.moveTo(-shW, shoulderY + 6);
+    // Trapèzes : l'épaule remonte vers le cou au lieu d'être coupée net.
+    ctx.quadraticCurveTo(-shW * 0.86, shoulderY - 3, -4.4 * B, shoulderY - 1);
+    ctx.lineTo(4.4 * B, shoulderY - 1);
+    ctx.quadraticCurveTo(shW * 0.86, shoulderY - 3, shW, shoulderY + 6);
+    // Deltoïde, puis creux de la taille, puis hanche.
+    ctx.quadraticCurveTo(shW * 1.04, shoulderY + 12, waW, waistY);
+    ctx.quadraticCurveTo(hiW * 1.02, hemY - 6, hiW, hemY);
+    ctx.lineTo(-hiW, hemY);
+    ctx.quadraticCurveTo(-hiW * 1.02, hemY - 6, -waW, waistY);
+    ctx.quadraticCurveTo(-shW * 1.04, shoulderY + 12, -shW, shoulderY + 6);
+    ctx.closePath();
+  }, top, outline);
 
-  if (!silhouette) {
-    // Ombre portée : un seul aplat, du côté opposé à la fenêtre.
+  if (outline) {
+    // Ombre portée : un seul aplat, côté opposé à la lumière.
     ctx.save();
     ctx.clip();
-    ctx.fillStyle = rgba(shade(top, -0.42), 0.42);
+    ctx.fillStyle = rgba(shade(look.top, -0.45), 0.3);
     ctx.beginPath();
-    ctx.moveTo(torsoW * 0.06, sy - 6);
-    ctx.lineTo(torsoW * 0.7, sy - 6);
-    ctx.lineTo(torsoW * 0.7, hipY + 6);
-    ctx.lineTo(torsoW * 0.22, hipY + 6);
+    ctx.moveTo(torsoW * 0.16, shoulderY - 8);
+    ctx.lineTo(torsoW * 1.2, shoulderY - 8);
+    ctx.lineTo(torsoW * 1.2, hemY + 8);
+    ctx.lineTo(torsoW * 0.34, hemY + 8);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
+
+    // Col : c'est lui qui transforme un torse coloré en vêtement.
+    ctx.beginPath();
+    if (look.collar === 0) {          // col rond
+      ctx.moveTo(-5.6 * B, shoulderY);
+      ctx.quadraticCurveTo(0, shoulderY + 6.5, 5.6 * B, shoulderY);
+    } else if (look.collar === 1) {   // col en V
+      ctx.moveTo(-5.6 * B, shoulderY - 0.5);
+      ctx.lineTo(0, shoulderY + 8);
+      ctx.lineTo(5.6 * B, shoulderY - 0.5);
+    } else {                          // col de chemise
+      ctx.moveTo(-6 * B, shoulderY - 1);
+      ctx.lineTo(-2 * B, shoulderY + 7);
+      ctx.lineTo(0, shoulderY + 2);
+      ctx.lineTo(2 * B, shoulderY + 7);
+      ctx.lineTo(6 * B, shoulderY - 1);
+    }
+    ink(ctx, LINE * 0.85);
+    ctx.stroke();
+
+    // Bas du vêtement : une ligne, et le pantalon existe.
+    ctx.beginPath();
+    ctx.moveTo(-hiW * 0.92, hemY - 1);
+    ctx.quadraticCurveTo(0, hemY + 2, hiW * 0.92, hemY - 1);
+    ink(ctx, LINE * 0.8);
+    ctx.stroke();
   }
   ctx.restore();
 
-  // --- Bras ---
-  const shx = torsoW * 0.46;
-  const shy = sy + 5;
-  drawArm(ctx, -shx, shy, c.armL, c.elbowL, c.handL, B, top, skin, silhouette);
-  drawArm(ctx, shx, shy, c.armR, c.elbowR, c.handR, B, top, skin, silhouette);
-
-  // --- Tête ---
+  // 6. Bras avant, par-dessus le buste.
   ctx.save();
   ctx.translate(0, hipY);
-  ctx.rotate(c.lean * 0.55);
+  ctx.rotate(c.lean * 0.5 + c.twist * 0.18);
+  ctx.translate(0, -hipY);
+  nearArm();
+  ctx.restore();
+
+  // 7. Tête.
+  ctx.save();
+  ctx.translate(0, hipY);
+  ctx.rotate(c.lean * 0.5);
   ctx.translate(0, -hipY);
   ctx.translate(0, headY);
   ctx.rotate(c.headTilt * 0.5);
-
-  // Cou : franc et un peu long, il tient la silhouette.
-  ctx.beginPath();
-  ctx.moveTo(-4 * B, headR * 0.55);
-  ctx.lineTo(-3.4 * B, sy - headY + 4);
-  ctx.lineTo(3.4 * B, sy - headY + 4);
-  ctx.lineTo(4 * B, headR * 0.55);
-  ctx.closePath();
-  paint(ctx, skin, !silhouette);
-
   drawHead(ctx, person, look, c, headR, t, silhouette);
   ctx.restore();
 
   ctx.restore();
   drawEmotes(ctx, person, x, y, h, o, false);
-}
-
-function drawArm(ctx, sx, sy, shoulder, elbow, open, B, sleeve, skin, silhouette) {
-  const upper = 20 * B;
-  const fore = 19 * B;
-  const ex = sx + Math.sin(shoulder) * upper;
-  const ey = sy + Math.cos(shoulder) * upper;
-  const wristA = shoulder + elbow;
-  const wx = ex + Math.sin(wristA) * fore;
-  const wy = ey + Math.cos(wristA) * fore;
-
-  limb(ctx, sx, sy, ex, ey, 5.4 * B, 4.2 * B, sleeve, !silhouette);
-  limb(ctx, ex, ey, wx, wy, 4.2 * B, 3.4 * B, skin, !silhouette);
-  // Des mains larges : dans ce style elles portent autant que les visages.
-  drawHand(ctx, wx, wy, wristA + Math.PI, open, skin, 6.2 * B, !silhouette);
-}
-
-function shoe(ctx, x, y, side, silhouette) {
-  ctx.beginPath();
-  ctx.moveTo(x - 4.5 * side, y - 4.5);
-  ctx.quadraticCurveTo(x - 5.5 * side, y + 1.5, x + 4 * side, y + 1.5);
-  ctx.quadraticCurveTo(x + 9 * side, y + 1, x + 8.5 * side, y - 2);
-  ctx.quadraticCurveTo(x + 6 * side, y - 5, x + 3 * side, y - 5);
-  ctx.closePath();
-  paint(ctx, silhouette ? INK : PALETTE.frameDark, !silhouette);
 }
 
 // --- Tête et visage ---------------------------------------------------------
@@ -398,8 +528,8 @@ function drawHead(ctx, person, look, c, r, t, silhouette) {
 
   // --- Sourcils : le premier outil d'expression ---
   ctx.save();
-  ctx.strokeStyle = shade(look.hair, -0.2);
-  ctx.lineWidth = r * 0.17;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = r * 0.16;
   ctx.lineCap = 'round';
   for (const side of [-1, 1]) {
     const bx = tx + side * eyeDx;
@@ -426,21 +556,22 @@ function drawHead(ctx, person, look, c, r, t, silhouette) {
         ctx.stroke();
         continue;
       }
-      const eh = r * 0.2 * open;
+      const eh = r * 0.17 * open;
       ctx.beginPath();
-      ctx.ellipse(ex, eyeY, r * 0.2, eh, 0, 0, Math.PI * 2);
-      paint(ctx, '#fbf7f0', true, LINE * 0.7);
+      ctx.ellipse(ex, eyeY, r * 0.175, eh, 0, 0, Math.PI * 2);
+      paint(ctx, '#fbf7f0', true, LINE * 0.65);
       // Pupille : elle suit le regard, elle ne reste jamais plein centre.
       const px = ex + turn * r * 0.09;
       ctx.beginPath();
-      ctx.arc(px, eyeY + (c.browInner > 0.5 ? eh * 0.25 : 0), r * 0.105 * Math.min(1, open * 1.6), 0, Math.PI * 2);
+      ctx.arc(px, eyeY + (c.browInner > 0.5 ? eh * 0.25 : 0), r * 0.095 * Math.min(1, open * 1.6), 0, Math.PI * 2);
       ctx.fillStyle = INK;
       ctx.fill();
-      // Paupière supérieure lourde : ça vieillit et ça caractérise.
+      // Paupière supérieure : un trait franc posé sur l'œil. C'est elle qui
+      // empêche l'œil d'être une bille collée sur le visage.
       ctx.beginPath();
-      ctx.moveTo(ex - r * 0.22, eyeY - eh * 0.55);
-      ctx.quadraticCurveTo(ex, eyeY - eh * 1.25, ex + r * 0.22, eyeY - eh * 0.55);
-      ink(ctx, r * 0.075);
+      ctx.moveTo(ex - r * 0.21, eyeY - eh * 0.35);
+      ctx.quadraticCurveTo(ex, eyeY - eh * 1.5, ex + r * 0.21, eyeY - eh * 0.35);
+      ink(ctx, r * 0.1);
       ctx.stroke();
     }
     if (look.glasses) drawGlasses(ctx, r, tx, eyeY, eyeDx);
@@ -505,9 +636,11 @@ function drawNose(ctx, look, r, tx, eyeY) {
       ctx.quadraticCurveTo(nx - r * 0.1, ny + r * 0.3, nx - r * 0.1, ny + r * 0.36);
       break;
   }
-  ctx.fillStyle = rgba(shade(look.skin, -0.28), 0.95);
-  ctx.fill();
-  ink(ctx, r * 0.075);
+  if (look.nose === 2) {
+    ctx.fillStyle = rgba(shade(look.skin, -0.3), 0.9);
+    ctx.fill();
+  }
+  ink(ctx, r * 0.1);
   ctx.stroke();
 }
 
@@ -515,7 +648,7 @@ function drawMouth(ctx, look, c, r, tx) {
   const my = r * 0.55;
   const curve = c.mouth;
   const openAmt = Math.max(0, c.mouthOpen);
-  const w = r * 0.36;
+  const w = r * 0.42;
 
   if (openAmt > 0.12) {
     // Bouche ouverte : on voit l'intérieur, et les dents si ça sourit.
@@ -535,9 +668,9 @@ function drawMouth(ctx, look, c, r, tx) {
     }
   } else {
     ctx.beginPath();
-    ctx.moveTo(tx - w, my - curve * r * 0.12);
-    ctx.quadraticCurveTo(tx, my + curve * r * 0.34, tx + w, my - curve * r * 0.12);
-    ink(ctx, r * 0.11);
+    ctx.moveTo(tx - w, my - curve * r * 0.14);
+    ctx.quadraticCurveTo(tx, my + curve * r * 0.4, tx + w, my - curve * r * 0.14);
+    ink(ctx, r * 0.145);
     ctx.stroke();
   }
 }

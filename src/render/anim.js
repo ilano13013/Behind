@@ -225,10 +225,10 @@ export const POSES = {
       // Les bras s'écartent du corps : collés, ça fait pain d'épices.
       armL: -0.3 - Math.abs(quirk) * 0.12 + breath * 0.05,
       armR: 0.3 + Math.abs(quirk) * 0.12 - breath * 0.05,
-      elbowL: 0.34 + quirk * 0.25,
-      elbowR: -0.34 + quirk * 0.25,
-      handL: 0.3 + quirk * 0.2,
-      handR: 0.3 - quirk * 0.2,
+      elbowL: 0.22 + quirk * 0.2,
+      elbowR: -0.22 + quirk * 0.2,
+      handL: 0.18 + quirk * 0.16,
+      handR: 0.18 - quirk * 0.16,
       // Hanche déhanchée : une jambe porte, l'autre se repose.
       legL: quirk > 0 ? 0.1 : 0.02,
       legR: quirk > 0 ? -0.02 : -0.1,
