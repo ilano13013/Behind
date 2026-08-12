@@ -333,7 +333,7 @@ function render(dt) {
     if (finaleTime >= FINALE_TOTAL) endFinale();
   } else {
     updatePositions(world, apt, dt);
-    drawInterior(ctx, world, apt, rect, clock, { detail: reveal });
+    drawInterior(ctx, world, apt, rect, clock, { detail: reveal, dt });
     drawRoomFrame(ctx, rect);
   }
   ctx.restore();

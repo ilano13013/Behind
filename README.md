@@ -18,7 +18,7 @@ tel quel ; `npm start` ne fait que lancer un serveur statique.
 ```bash
 npm run sim        # fait tourner l'immeuble 5 ans sans écran et raconte
 npm run sim 20 ma-graine
-npm test           # 30 vérifications sur la simulation
+npm test           # 42 vérifications : simulation et animation
 ```
 
 ---
@@ -60,6 +60,7 @@ n'ait été écrite.
 | `src/sim/actions.js` | le catalogue d'actions et le choix par utilité |
 | `src/sim/interactions.js` | ce qui se passe réellement quand deux personnes se retrouvent |
 | `src/sim/lifecycle.js` | vieillir, travailler, aimer, se séparer, tomber malade, mourir |
+| `src/render/anim.js` | le squelette animé : poses, lissage, mouvement secondaire |
 
 ### La rancune n'est pas une variable
 
@@ -136,9 +137,44 @@ de la solitude et du stress.
 
 Animation 2D dessinée entièrement au canvas, sans une seule image importée.
 Couleurs chaudes de quartier populaire — ocres, terres cuites, verts fanés,
-bleus de nuit. Personnages très expressifs : grosse tête, petit corps,
-sourcils et bouche qui portent l'émotion, silhouettes lisibles à trois
-centimètres de haut derrière une vitre.
+bleus de nuit.
+
+Le trait est celui de l'animation urbaine française : **contours à l'encre
+épais**, aplats francs, une seule ombre portée par volume. Les proportions
+sont assumées — membres longs et fins, **mains larges à cinq doigts** qui
+parlent autant que les visages, mâchoires marquées, nez caractériels,
+casquettes et lunettes noires. Personne n'est joli, tout le monde est
+reconnaissable : mâchoire, nez, oreilles, coupe, carrure et démarche sont
+tirés de l'identifiant de l'habitant, donc stables pour toute la partie.
+
+### L'animation
+
+`src/render/anim.js` tient un petit squelette par habitant. Chaque
+articulation a une valeur courante qui **court après** sa valeur cible, à une
+vitesse propre. Trois choses en découlent, sans être écrites nulle part :
+
+- **Les changements de pose se fondent.** Passer de « dort » à « cuisine »
+  prend une demi-seconde, pas une image.
+- **Le mouvement secondaire est gratuit.** Les mains sont réglées à 18, la
+  tête à 4,5 : la tête traîne donc systématiquement derrière le corps, ce qui
+  donne du poids. Le buste se vrille d'après la vitesse réelle des bras.
+- **L'écrasement suit la physique.** Le squash est calculé à partir de la
+  vitesse verticale mesurée, pas d'une courbe scriptée.
+
+Par-dessus, une couche vivante en permanence : clignements irréguliers
+(plus rapides sous stress), coups d'œil spontanés, respiration, transfert de
+poids d'une jambe sur l'autre, et une posture de repos différente pour
+chaque habitant — personne ne se tient droit comme un i. Quand quelqu'un
+parle, la bouche s'anime et les mains accompagnent.
+
+Une vingtaine de poses couvrent les actions : marche à cycle complet
+(bras et jambes opposés, double rebond), touiller une casserole, porter la
+fourchette à la bouche, donner un coup de balai, danser sur deux fréquences
+décalées, s'énerver en tremblant, pianoter, téléphoner en gesticulant.
+
+`npm test` vérifie tout ça hors navigateur : amplitude du cycle de marche,
+opposition bras/jambes, fondu entre poses, retard de la tête sur la main, et
+absence de divergence sur l'ensemble des poses.
 
 Chaque appartement est meublé d'après ses occupants : le désordre suit le
 besoin de confort et le caractère, le nombre de cadres au mur suit le nombre

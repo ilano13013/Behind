@@ -7,6 +7,6 @@
   "scripts": {
     "start": "node tools/serve.js",
     "sim": "node tools/simulate.js",
-    "test": "node tools/test-sim.js"
+    "test": "node tools/test-sim.js && node tools/test-anim.js"
   }
 }

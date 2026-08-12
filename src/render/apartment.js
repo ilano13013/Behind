@@ -57,7 +57,10 @@ export function updatePositions(world, apt, dt) {
     // On décale les gens qui partagent une zone pour qu'ils ne se superposent pas.
     const same = occupants.filter((q) => Math.abs(zoneFor(q) - base) < 0.02);
     const rank = same.indexOf(p);
-    const offset = same.length > 1 ? (rank - (same.length - 1) / 2) * 0.06 : 0;
+    // Assez d'écart pour que personne ne se superpose, et un rang de
+    // profondeur pour que le groupe ait de l'épaisseur.
+    const offset = same.length > 1 ? (rank - (same.length - 1) / 2) * 0.115 : 0;
+    p.zRank = same.length > 1 ? (rank % 2) : 0;
     const target = Math.max(0.04, Math.min(0.96, base + offset));
     const dx = target - p.pos.x;
     if (Math.abs(dx) > 0.004) {
@@ -187,13 +190,18 @@ export function drawInterior(ctx, world, apt, rect, time, opts = {}) {
   }
 
   // --- Les habitants ---
+  // Le pas de temps est indispensable : c'est lui qui pilote le lissage des
+  // articulations, donc toute l'animation.
   const charH = h * 0.54;
-  const sorted = [...occupants].sort((a, b) => a.pos.x - b.pos.x);
+  const dt = opts.dt ?? 1 / 60;
+  // Les gens du fond se dessinent d'abord, un peu plus petits et plus haut :
+  // c'est ce qui empêche un groupe de ressembler à une frise.
+  const sorted = [...occupants].sort((a, b) => (b.zRank ?? 0) - (a.zRank ?? 0) || a.pos.x - b.pos.x);
   for (const p of sorted) {
+    const depth = p.zRank ?? 0;
     const px = U(p.pos.x);
-    let py = V + h * 0.02;
+    let py = V + h * 0.02 - depth * h * 0.035;
     let pose;
-    if (p.walking) pose = 'marche';
     if (p.action?.id === 'dormir' || p.action?.id === 'soigner') {
       py = V - h * 0.055;
       pose = 'couche';
@@ -201,7 +209,7 @@ export function drawInterior(ctx, world, apt, rect, time, opts = {}) {
       pose = 'bebe';
       py = V;
     }
-    drawCharacter(ctx, p, px, py, charH, { time, pose, facing: p.facing });
+    drawCharacter(ctx, p, px, py, charH * (1 - depth * 0.07), { time, dt, pose, facing: p.facing });
   }
 
   // Bulles au-dessus, après tout le monde, pour qu'elles ne soient pas cachées.
