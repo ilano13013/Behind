@@ -74,19 +74,29 @@ const PANEL_RIGHT = 356;
 const PANEL_BOTTOM = 150;
 const PANEL_TOP = 86;
 
-export function interiorTarget(width, height) {
-  const availW = Math.max(320, width - PANEL_RIGHT - 28);
-  const availH = Math.max(220, height - PANEL_TOP - PANEL_BOTTOM);
-  // Une pièce en coupe est large et basse, mais pas au point d'avoir un
-  // grand mur vide au-dessus des meubles.
-  const w = Math.min(availW, availH * 2.15);
-  const h = Math.min(availH, w / 2.15);
-  return {
-    x: 14 + (availW - w) / 2,
-    y: PANEL_TOP + (availH - h) / 2,
-    w,
-    h,
-  };
+/** Sous cette largeur, les panneaux passent en bas et non plus à droite. */
+export const MOBILE_MAX_WIDTH = 860;
+export const isNarrow = (w, h) => w <= MOBILE_MAX_WIDTH || h <= 520;
+
+/**
+ * @param {object} [reserve] marges réellement occupées par l'interface,
+ *   mesurées dans le DOM. Deviner la hauteur d'une feuille dont le contenu
+ *   varie ne marche pas : elle finit par manger les jambes des personnages.
+ */
+export function interiorTarget(width, height, reserve = null) {
+  const narrow = isNarrow(width, height);
+  const right = reserve?.right ?? (narrow ? 16 : PANEL_RIGHT);
+  const bottom = reserve?.bottom ?? (narrow ? Math.max(150, height * 0.34) : PANEL_BOTTOM);
+  const top = reserve?.top ?? (narrow ? 64 : PANEL_TOP);
+  // Une pièce moins large sur mobile : à 390 px de large, un rapport 2,15
+  // ne laisse qu'une bande de 180 px de haut.
+  const ratio = narrow ? 1.65 : 2.15;
+
+  const availW = Math.max(200, width - right - 28);
+  const availH = Math.max(120, height - top - bottom);
+  const w = Math.min(availW, availH * ratio);
+  const h = Math.min(availH, w / ratio);
+  return { x: 14 + (availW - w) / 2, y: top + (availH - h) / 2, w, h };
 }
 
 /** Interpole entre le rectangle de la fenêtre et celui de l'intérieur. */

@@ -20,7 +20,13 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  /* 100dvh suit la barre d'URL mobile, qui apparaît et disparaît. */
+  height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
+  /* Supprime le délai de 300 ms et le zoom au double-tap. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   background: #10141f;
   font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
   color: var(--ink);
@@ -31,11 +37,35 @@ html, body {
   display: block;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   cursor: pointer;
+  /* Le canvas ne défile pas et ne se pince pas : c'est un plateau de jeu. */
+  touch-action: none;
 }
 #scene.grabbing { cursor: default; }
 
 .hidden { display: none !important; }
+
+.only-mobile { display: none !important; }
+
+/* Bouton de retour à la façade : la seule sortie quand il n'y a pas d'Échap. */
+.back-btn {
+  position: fixed;
+  left: 12px;
+  top: 84px;
+  z-index: 22;
+  background: rgba(247, 239, 226, 0.95);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 9px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.back-btn:hover { background: #fff; }
+
+/* Poignée des feuilles mobiles : elle dit « ça se tire ». */
+.sheet-grip { display: none; }
 
 /* ---------------------------------------------------------------- overlays */
 
@@ -439,4 +469,163 @@ body.finale { background: #000; }
   #chronicle { width: min(340px, 52vw); max-height: 34vh; }
   #inspector { width: min(300px, 46vw); }
   #interventions { max-width: 54vw; right: 12px; bottom: 96px; }
+}
+
+
+/* ==========================================================================
+   Petits écrans.
+
+   Deux mises en page mobiles, pas une. En portrait, les panneaux remontent
+   du bas ; en paysage, un téléphone fait 390 px de haut et une feuille du
+   bas ne laisserait rien à la scène — les panneaux passent donc sur le
+   côté, comme au bureau mais en plus étroit.
+   ========================================================================== */
+
+/* --- Commun aux deux : bandeau compact, cibles tactiles généreuses --- */
+@media (max-width: 860px), (max-height: 560px) {
+  .only-mobile { display: flex !important; }
+  .only-desktop { display: none !important; }
+
+  #hud {
+    top: max(6px, env(safe-area-inset-top));
+    left: 6px;
+    right: 6px;
+    gap: 5px;
+  }
+  .card { padding: 5px 8px; border-radius: 8px; }
+  .clock-card { min-width: 0; flex: 0 0 auto; }
+  .date { font-size: 9px; max-width: 92px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .time { font-size: 15px; }
+  .speed-card { padding: 3px; gap: 2px; }
+  .speed-card button { padding: 6px 7px; font-size: 11px; min-width: 30px; }
+  .gauge-card { max-width: none; min-width: 0; }
+  .gauge-label { display: none; }
+  .gauge-value { font-size: 9px; margin-top: 2px; }
+  .influence-label { display: none; }
+  .dot { width: 8px; height: 8px; }
+  .icon-btn { font-size: 13px; padding: 5px 9px; }
+
+  .sheet-grip {
+    display: block;
+    width: 38px;
+    height: 4px;
+    border-radius: 3px;
+    background: rgba(80, 60, 44, 0.28);
+    margin: 7px auto 2px;
+    flex: 0 0 auto;
+  }
+
+  /* Les interventions vivent dans la fiche : une bande qui défile. */
+  #interventions {
+    position: static;
+    /* La croix de fermeture se pose dans ce coin : on lui laisse la place. */
+    padding-right: 34px;
+    max-width: none;
+    box-shadow: none;
+    background: none;
+    border-radius: 0;
+    padding: 6px 0 10px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 4px;
+  }
+  .interv-list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .interv-list::-webkit-scrollbar { display: none; }
+  .interv { flex: 0 0 auto; padding: 9px 12px; font-size: 12.5px; }
+
+  #chronicle.folded { display: none !important; }
+  .panel-head { padding: 6px 12px 8px; flex-wrap: wrap; }
+  .filters button { padding: 5px 9px; font-size: 11px; }
+  #beats li { font-size: 13.5px; padding: 9px 10px; }
+
+  .intro-card { padding: 22px 20px; max-height: 88dvh; overflow-y: auto; }
+  .intro-card h1 { font-size: 34px; }
+  .tag { font-size: 14px; margin-bottom: 14px; }
+  .blurb { font-size: 13.5px; }
+  .primary { padding: 14px; }
+  .toast { top: auto; bottom: 76px; max-width: 88vw; font-size: 13px; }
+  .secrets-card { max-height: 86dvh; overflow-y: auto; }
+}
+
+/* --- Portrait : feuilles remontant du bas --- */
+@media (max-width: 860px) and (orientation: portrait) {
+  #chronicle,
+  #inspector {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: auto;
+    max-height: 56dvh;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -8px 28px rgba(30, 20, 12, 0.35);
+  }
+  #chronicle { max-height: 52dvh; }
+  #inspector {
+    padding: 0 14px calc(14px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #inspector .close { top: 10px; right: 12px; font-size: 30px; padding: 0 8px; }
+  #beats { max-height: 40dvh; }
+
+  .back-btn {
+    top: auto;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 11px 20px;
+    font-size: 15px;
+  }
+  body.sheet-open .back-btn { display: none; }
+}
+
+/* --- Paysage court : panneaux sur le côté, la scène garde la hauteur --- */
+@media (max-height: 560px) and (orientation: landscape) {
+  #chronicle,
+  #inspector {
+    top: 52px;
+    bottom: 8px;
+    right: 8px;
+    left: auto;
+    width: min(320px, 44vw);
+    max-height: none;
+    border-radius: 12px;
+  }
+  #inspector {
+    padding: 0 12px 12px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #inspector .close { top: 6px; right: 8px; font-size: 26px; }
+  #chronicle { display: flex; }
+  #beats { flex: 1; }
+  .sheet-grip { display: none; }
+
+  .back-btn {
+    top: auto;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: 10px;
+    padding: 9px 16px;
+  }
+}
+
+/* Écrans très étroits : on sacrifie la date, jamais l'heure ni le bonheur —
+   le bonheur de l'immeuble est l'objectif du joueur, il reste affiché. */
+@media (max-width: 430px) {
+  .date { display: none; }
+  .gauge-card { flex: 1 1 40px; min-width: 34px; padding: 5px 6px; }
+  .gauge-value { display: none; }
+  .speed-card button { padding: 6px 5px; min-width: 26px; }
+  .icon-btn { padding: 5px 7px; }
+  /* Une vitesse de moins : pause, normal, très rapide suffisent à tenir
+     dans la largeur sans rogner le compteur de secrets. */
+  .speed-card button[data-speed="3"] { display: none; }
+  #hud { gap: 4px; }
 }

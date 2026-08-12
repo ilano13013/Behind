@@ -1,0 +1,20 @@
+{
+  "name": "Behind — un immeuble, des vies",
+  "short_name": "Behind",
+  "description": "Un immeuble. Des dizaines de vies. Aucune n'est la vôtre.",
+  "lang": "fr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#10141f",
+  "theme_color": "#c98c5a",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -11,15 +11,21 @@ import { jobLabel } from '../content/jobs.js';
 import { g } from '../core/text.js';
 
 export class Inspector {
-  constructor(world, { onSelectPerson }) {
+  constructor(world, { onSelectPerson, onClose }) {
     this.world = world;
     this.onSelectPerson = onSelectPerson;
+    this.onClose = onClose;
     this.root = document.getElementById('inspector');
     this.body = document.getElementById('inspector-body');
     this.apartment = null;
     this.person = null;
     this.expanded = new Set();
-    document.getElementById('inspector-close').addEventListener('click', () => this.close());
+    // Refermer la fiche, c'est ressortir de l'appartement : garder la
+    // caméra collée à une pièce dont on a fermé la fiche n'a aucun sens.
+    document.getElementById('inspector-close').addEventListener('click', () => {
+      if (this.onClose) this.onClose();
+      else this.close();
+    });
   }
 
   open(apt) {

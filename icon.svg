@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#1b2436"/>
+  <rect x="76" y="56" width="360" height="400" rx="10" fill="#c98c5a"/>
+  <g fill="#1d2634">
+    <rect x="116" y="96" width="72" height="80" rx="6"/>
+    <rect x="324" y="96" width="72" height="80" rx="6"/>
+    <rect x="220" y="200" width="72" height="80" rx="6"/>
+    <rect x="116" y="304" width="72" height="80" rx="6"/>
+  </g>
+  <g fill="#ffcf7a">
+    <rect x="220" y="96" width="72" height="80" rx="6"/>
+    <rect x="116" y="200" width="72" height="80" rx="6"/>
+    <rect x="324" y="304" width="72" height="80" rx="6"/>
+  </g>
+  <!-- La fenêtre qui ne s'allume jamais. -->
+  <rect x="324" y="200" width="72" height="80" rx="6" fill="#0b0e16"/>
+  <rect x="220" y="304" width="72" height="80" rx="6" fill="#1d2634"/>
+</svg>

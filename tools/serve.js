@@ -7,6 +7,7 @@
 
 import http from 'node:http';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -42,5 +43,15 @@ http.createServer((req, res) => {
   });
   fs.createReadStream(file).pipe(res);
 }).listen(port, () => {
-  console.log(`Behind tourne sur http://localhost:${port}`);
+  console.log(`\nBehind tourne sur  http://localhost:${port}`);
+  // Le jeu se joue aussi au doigt : on affiche l'adresse à taper sur le
+  // téléphone, sinon il faut aller la chercher soi-même.
+  for (const [, addrs] of Object.entries(os.networkInterfaces())) {
+    for (const a of addrs ?? []) {
+      if (a.family === 'IPv4' && !a.internal) {
+        console.log(`Sur le téléphone   http://${a.address}:${port}  (même réseau)`);
+      }
+    }
+  }
+  console.log('');
 });

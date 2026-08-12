@@ -260,15 +260,55 @@ sur trois générations.
 
 ---
 
+## Mobile et ordinateur
+
+Le même fichier, servi tel quel, se joue au doigt comme à la souris. Il n'y
+a pas de version mobile : il y a **trois mises en page** que le jeu choisit
+selon la place disponible.
+
+| | Panneaux | Sortir d'un appartement |
+|---|---|---|
+| Ordinateur | fiche à droite, chronique en bas à gauche | Échap, clic hors de la pièce, ou « ‹ La façade » |
+| Téléphone en portrait | feuilles qui remontent du bas | bouton « ‹ La façade », ou la croix |
+| Téléphone en paysage | panneau latéral étroit | idem |
+
+Le paysage mérite son propre traitement : un téléphone couché fait 390 px de
+haut, et une feuille remontant du bas ne laisserait rien à la scène.
+
+Trois détails qui décident si c'est jouable ou non :
+
+- **La place occupée par l'interface est mesurée, pas devinée.** La hauteur
+  d'une fiche dépend de son contenu ; en réservant un pourcentage fixe, le
+  panneau finissait par couper les jambes des personnages. Le cadre de la
+  pièce se calcule à partir des rectangles réels lus dans le DOM.
+- **Un doigt ne survole pas.** Le liseré de survol et son suivi ne
+  s'activent qu'au pointeur fin ; au tactile, on touche et on entre.
+- **Sans clavier, il faut des boutons.** Échap et Espace n'existent pas sur
+  téléphone : le retour à la façade est un vrai bouton, et les vitesses sont
+  déjà cliquables. Sous 430 px on sacrifie la date et une vitesse
+  intermédiaire — jamais l'heure ni la jauge de bonheur, qui est l'objectif.
+
+Le jeu est aussi **installable** (manifeste + icône) : « Ajouter à l'écran
+d'accueil » sur iOS, « Installer » sur Android et Chrome, et il s'ouvre en
+plein écran sans barre de navigateur. La densité de pixels est plafonnée à
+1,75 sur mobile — rendre en 3× serait joli et injouable.
+
+Pour y jouer depuis un téléphone sur le même réseau que la machine qui sert
+le jeu, `npm start` écoute sur toutes les interfaces : ouvrez
+`http://<adresse-ip-de-la-machine>:8000`.
+
+---
+
 ## Commandes
 
-| | |
-|---|---|
-| Clic sur une fenêtre | entrer |
-| Clic à l'extérieur, ou Échap | ressortir |
-| Espace | pause |
-| 1 2 3 4 | vitesses |
-| Clic sur un nom | la fiche complète d'un habitant |
-| Clic sur une ligne de chronique | *pourquoi c'est arrivé* |
+| | Ordinateur | Téléphone |
+|---|---|---|
+| Entrer dans un appartement | clic sur une fenêtre | toucher une fenêtre |
+| Ressortir | Échap, ou clic hors de la pièce | « ‹ La façade », ou la croix |
+| Pause | Espace | bouton ❚❚ |
+| Vitesses | 1 2 3 4 | boutons ▶ |
+| Fiche complète d'un habitant | clic sur le nom | toucher le nom |
+| *Pourquoi c'est arrivé* | clic sur une ligne de chronique | idem |
+| Chronique | toujours visible | bouton ☰ |
 
 Dans la console : `behind.avance(30)` fait passer trente jours d'un coup.

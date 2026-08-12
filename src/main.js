@@ -11,7 +11,7 @@ import {
 } from './render/facade.js';
 import { drawInterior, updatePositions } from './render/apartment.js';
 import {
-  Camera, VIEW, interiorTarget, finaleTarget, lerpRect, facadeTransform, drawVignette,
+  Camera, VIEW, interiorTarget, finaleTarget, lerpRect, facadeTransform, drawVignette, isNarrow,
 } from './render/camera.js';
 import { drawFinale, TOTAL as FINALE_TOTAL } from './render/finale.js';
 import { Hud, toast } from './ui/hud.js';
@@ -43,6 +43,9 @@ let clock = 0;          // temps d'animation, en secondes
 let finaleTime = null;  // scène de l'appartement caché
 let hoverApt = null;
 let dpr = 1;
+let narrow = false;      // téléphone ou petit écran : l'interface change de forme
+let bottomSheet = false; // portrait : les panneaux remontent du bas
+let usingTouch = false;  // dès le premier doigt, on abandonne le survol
 
 // --------------------------------------------------------------- démarrage
 
@@ -61,7 +64,7 @@ function start() {
 
   hud = new Hud(world, { onSpeed: setSpeed });
   chronicle = new ChronicleView(world, { onFocus: focusBeat });
-  inspector = new Inspector(world, { onSelectPerson: onSelectPerson });
+  inspector = new Inspector(world, { onSelectPerson, onClose: () => leave() });
   interventions = new InterventionBar(world);
 
   hud.show();
@@ -97,9 +100,15 @@ function setSpeed(v) {
 }
 
 function resize() {
-  dpr = Math.min(2, window.devicePixelRatio || 1);
   const w = window.innerWidth;
   const h = window.innerHeight;
+  narrow = isNarrow(w, h);
+  // En paysage court, une feuille du bas ne laisserait rien à la scène :
+  // on repasse aux panneaux latéraux, simplement plus étroits.
+  bottomSheet = narrow && h > w;
+  // Un téléphone a souvent une densité de 3 : rendre 3× serait joli et
+  // injouable. On plafonne à 2 sur grand écran, 1,75 sur mobile.
+  dpr = Math.min(narrow ? 1.75 : 2, window.devicePixelRatio || 1);
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
   canvas.style.width = `${w}px`;
@@ -107,12 +116,89 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   layout.resize(w, h);
   cache = buildStaticLayer(world, layout);
+  applyLayout();
+}
+
+/**
+ * Bascule bureau / mobile.
+ *
+ * Sur téléphone la barre d'interventions est déplacée à l'intérieur de la
+ * fiche d'habitant : deux panneaux flottants qui se disputent le bas d'un
+ * écran de 390 px, ça ne marche pas. On déplace le nœud plutôt que d'en
+ * entretenir deux copies.
+ */
+function applyLayout() {
+  document.body.classList.toggle('mobile', narrow);
+  const interv = document.getElementById('interventions');
+  const inspectorEl = document.getElementById('inspector');
+  const body = document.getElementById('inspector-body');
+  if (narrow) {
+    if (interv.parentElement !== inspectorEl) inspectorEl.insertBefore(interv, body);
+    // La chronique démarre repliée : elle recouvrirait l'immeuble.
+    document.getElementById('chronicle').classList.add('folded');
+  } else if (interv.parentElement !== document.body) {
+    document.body.appendChild(interv);
+    document.getElementById('chronicle').classList.remove('folded');
+  }
+  updateChrome();
+}
+
+/** Boutons qui n'existent que dans certaines situations. */
+/**
+ * Place réellement occupée par l'interface autour de la scène.
+ * On lit le DOM : c'est la seule source fiable une fois que le contenu des
+ * panneaux change de hauteur.
+ */
+function reservedSpace() {
+  const hud = document.getElementById('hud');
+  const top = hud.classList.contains('hidden')
+    ? 20 : hud.getBoundingClientRect().bottom + 10;
+
+  const sheet = document.getElementById('inspector');
+  const chron = document.getElementById('chronicle');
+  let bottom = 16;
+  let right = 16;
+
+  const visible = (el) => el && !el.classList.contains('hidden')
+    && !el.classList.contains('folded') && el.getBoundingClientRect().height > 1;
+
+  if (bottomSheet) {
+    if (visible(sheet)) bottom = Math.max(bottom, layout.height - sheet.getBoundingClientRect().top + 8);
+    else if (visible(chron)) bottom = Math.max(bottom, layout.height - chron.getBoundingClientRect().top + 8);
+    else bottom = 80; // place du bouton « la façade »
+  } else if (narrow) {
+    if (visible(sheet)) right = Math.max(right, layout.width - sheet.getBoundingClientRect().left + 10);
+    else if (visible(chron)) right = Math.max(right, layout.width - chron.getBoundingClientRect().left + 10);
+    bottom = 56; // place du bouton « la façade »
+  } else {
+    if (visible(sheet)) right = Math.max(right, layout.width - sheet.getBoundingClientRect().left + 12);
+    if (visible(chron)) bottom = Math.max(bottom, 150);
+  }
+  // On ne laisse jamais l'interface avaler plus des deux tiers de l'écran.
+  bottom = Math.min(bottom, layout.height * 0.66);
+  right = Math.min(right, layout.width * 0.5);
+  return { top, right, bottom };
+}
+
+function updateChrome() {
+  const zoomed = camera && (camera.zoomed || camera.busy) && finaleTime === null;
+  document.getElementById('btn-retour').classList.toggle('hidden', !zoomed);
+  const sheetOpen = narrow && (!document.getElementById('inspector').classList.contains('hidden')
+    || !document.getElementById('chronicle').classList.contains('folded'));
+  document.body.classList.toggle('sheet-open', sheetOpen);
 }
 
 // ------------------------------------------------------------------ entrées
 
 function installInput() {
-  canvas.addEventListener('mousemove', (e) => {
+  canvas.addEventListener('pointermove', (e) => {
+    // Un doigt ne survole pas : il touche. Le liseré de survol n'a de sens
+    // qu'à la souris.
+    if (e.pointerType === 'touch') {
+      usingTouch = true;
+      hoverApt = null;
+      return;
+    }
     if (camera.zoomed || camera.busy) {
       hoverApt = null;
       return;
@@ -121,13 +207,17 @@ function installInput() {
     canvas.style.cursor = hoverApt ? 'pointer' : 'default';
   });
 
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') usingTouch = true;
+  });
+
   canvas.addEventListener('click', (e) => {
     if (finaleTime !== null) return;
     if (camera.busy) return;
 
     if (camera.zoomed) {
       // Un clic hors de la pièce ressort ; à l'intérieur on ne fait rien.
-      const target = interiorTarget(layout.width, layout.height);
+      const target = interiorTarget(layout.width, layout.height, reservedSpace());
       const inside = e.clientX >= target.x && e.clientX <= target.x + target.w
         && e.clientY >= target.y && e.clientY <= target.y + target.h;
       if (!inside) leave();
@@ -156,6 +246,15 @@ function installInput() {
 
   document.getElementById('btn-secrets').addEventListener('click', () => toggleSecrets(true));
   document.getElementById('secrets-close').addEventListener('click', () => toggleSecrets(false));
+
+  document.getElementById('btn-retour').addEventListener('click', leave);
+  document.getElementById('btn-chronique').addEventListener('click', () => {
+    const el = document.getElementById('chronicle');
+    const opening = el.classList.contains('folded');
+    if (opening) inspector.close();
+    el.classList.toggle('folded');
+    updateChrome();
+  });
 }
 
 function enterApartment(apt) {
@@ -181,6 +280,9 @@ function enterApartment(apt) {
   camera.enter(apt);
   inspector.open(apt);
   if (!apt.hidden) interventions.setTarget(null);
+  // Sur mobile, la fiche et la chronique ne cohabitent pas.
+  if (narrow) document.getElementById('chronicle').classList.add('folded');
+  updateChrome();
 }
 
 function leave() {
@@ -188,6 +290,7 @@ function leave() {
   camera.leave();
   inspector.close();
   interventions.hide();
+  updateChrome();
 }
 
 function onSelectPerson(person) {
@@ -292,7 +395,11 @@ function render(dt) {
   const H = layout.height;
   const u = camera.progress();
   const apt = camera.apartment;
-  const targetFn = finaleTime !== null ? finaleTarget : interiorTarget;
+  // La scène finale prend tout l'écran : elle ignore les marges.
+  const reserve = finaleTime !== null ? null : reservedSpace();
+  const targetFn = finaleTime !== null
+    ? finaleTarget
+    : (ww, hh) => interiorTarget(ww, hh, reserve);
 
   // --- Façade, éventuellement rapprochée ---
   ctx.save();
