@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Behind — un immeuble, des vies</title>
+<link rel="stylesheet" href="styles/main.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23c98c5a'/><rect x='6' y='6' width='8' height='8' fill='%23ffcf7a'/><rect x='18' y='6' width='8' height='8' fill='%231d2634'/><rect x='6' y='18' width='8' height='8' fill='%231d2634'/><rect x='18' y='18' width='8' height='8' fill='%23ffcf7a'/></svg>">
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+
+<!-- Écran de départ -->
+<div id="intro" class="overlay">
+  <div class="intro-card">
+    <h1>Behind</h1>
+    <p class="tag">Un immeuble. Des dizaines de vies. Aucune n'est la vôtre.</p>
+    <p class="blurb">
+      Vous n'incarnez personne. Vous regardez. Choisissez une fenêtre, le mur
+      disparaît, et vous observez ce qui s'y passe — pendant que tous les
+      autres appartements continuent de vivre sans vous.
+    </p>
+    <p class="blurb">
+      Vous pouvez influencer un peu : un cadeau anonyme, une lettre, une
+      occasion. Les habitants restent libres d'accepter ou de refuser.
+    </p>
+    <label class="seed-row">
+      <span>Graine de l'immeuble</span>
+      <input id="seed" type="text" value="rue-des-lilas" spellcheck="false">
+    </label>
+    <button id="start" class="primary">Entrer dans la rue</button>
+    <p class="hint">Clic sur une fenêtre pour entrer · Échap pour ressortir · Espace pour la pause</p>
+  </div>
+</div>
+
+<!-- Bandeau du haut -->
+<header id="hud" class="hidden">
+  <div class="card clock-card">
+    <div id="date" class="date">—</div>
+    <div id="time" class="time">00:00</div>
+  </div>
+
+  <div class="card speed-card" role="group" aria-label="Vitesse">
+    <button data-speed="0" title="Pause">❚❚</button>
+    <button data-speed="1" class="active" title="Normal">▶</button>
+    <button data-speed="3" title="Rapide">▶▶</button>
+    <button data-speed="8" title="Très rapide">▶▶▶</button>
+  </div>
+
+  <div class="card gauge-card">
+    <div class="gauge-label">Bonheur de l'immeuble</div>
+    <div class="gauge"><div id="happy-bar" class="gauge-fill"></div></div>
+    <div id="happy-value" class="gauge-value">—</div>
+  </div>
+
+  <div class="card influence-card" title="L'influence se recharge avec le temps">
+    <span class="influence-label">Influence</span>
+    <div id="influence-dots" class="dots"></div>
+  </div>
+
+  <button id="btn-secrets" class="card icon-btn" title="Secrets">✦ <span id="secret-count">0</span></button>
+</header>
+
+<!-- Chronique -->
+<section id="chronicle" class="panel hidden">
+  <div class="panel-head">
+    <h2>Chronique</h2>
+    <div class="filters">
+      <button data-tone="tous" class="active">Tout</button>
+      <button data-tone="marquant">Marquant</button>
+      <button data-tone="drole">Drôle</button>
+      <button data-tone="grave">Grave</button>
+    </div>
+    <button id="chronicle-toggle" class="collapse" title="Replier">—</button>
+  </div>
+  <ul id="beats"></ul>
+</section>
+
+<!-- Fiche d'appartement / d'habitant -->
+<aside id="inspector" class="panel hidden">
+  <button id="inspector-close" class="close" title="Fermer">×</button>
+  <div id="inspector-body"></div>
+</aside>
+
+<!-- Interventions -->
+<div id="interventions" class="hidden">
+  <div class="interv-head">Vous pouvez agir, un peu.</div>
+  <div id="interv-list" class="interv-list"></div>
+</div>
+
+<!-- Secrets -->
+<div id="secrets-panel" class="overlay hidden">
+  <div class="intro-card secrets-card">
+    <h2>Ce que vous avez trouvé</h2>
+    <ul id="secrets-list"></ul>
+    <div id="hidden-progress"></div>
+    <button id="secrets-close" class="primary">Refermer</button>
+  </div>
+</div>
+
+<!-- Notification discrète -->
+<div id="toast" class="toast hidden"></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

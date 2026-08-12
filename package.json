@@ -1,0 +1,12 @@
+{
+  "name": "behind",
+  "version": "0.1.0",
+  "description": "Behind — simulateur de vies dans un immeuble. Le joueur observe, n'incarne personne, et influence à peine.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node tools/serve.js",
+    "sim": "node tools/simulate.js",
+    "test": "node tools/test-sim.js"
+  }
+}
