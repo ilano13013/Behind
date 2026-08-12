@@ -463,6 +463,53 @@ body.finale #interventions,
 body.finale #toast { display: none !important; }
 body.finale { background: #000; }
 
+/* ------------------------------------------------------------------ guide */
+
+.guide-card { max-width: 560px; max-height: 86dvh; overflow-y: auto; }
+#guide-body h3 {
+  margin: 16px 0 4px;
+  font-size: 15px;
+  color: var(--accent);
+  letter-spacing: 0.01em;
+}
+#guide-body h3:first-child { margin-top: 4px; }
+#guide-body p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+#guide-close { margin-top: 20px; }
+
+/* La bulle de conseil : présente, jamais bloquante. */
+.coach {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 24;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(520px, 82vw);
+  padding: 11px 12px 11px 16px;
+  background: rgba(40, 28, 20, 0.94);
+  color: #f7efe2;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  font-size: 13.5px;
+  line-height: 1.45;
+  animation: rise 0.35s ease;
+}
+.coach button {
+  flex: 0 0 auto;
+  font-size: 20px;
+  line-height: 1;
+  color: rgba(247, 239, 226, 0.6);
+  padding: 0 4px;
+}
+.coach button:hover { color: #fff; }
+
 /* ----------------------------------------------------------------- toast */
 
 .toast {
@@ -607,6 +654,8 @@ body.finale { background: #000; }
     font-size: 15px;
   }
   body.sheet-open .back-btn { display: none; }
+  .coach { bottom: calc(64px + env(safe-area-inset-bottom)); font-size: 13px; }
+  body.sheet-open .coach { display: none; }
 }
 
 /* --- Paysage court : panneaux sur le côté, la scène garde la hauteur --- */
@@ -679,8 +728,7 @@ body.finale { background: #000; }
       <input id="seed" type="text" value="rue-des-lilas" spellcheck="false">
     </label>
     <button id="start" class="primary">Entrer dans la rue</button>
-    <p class="hint only-desktop">Clic sur une fenêtre pour entrer · Échap pour ressortir · Espace pour la pause</p>
-    <p class="hint only-mobile">Touchez une fenêtre pour entrer · « ‹ La façade » pour ressortir</p>
+    <p class="hint">Le jeu vous guidera pas à pas. Le bouton <b>?</b> en haut explique tout à tout moment.</p>
   </div>
 </div>
 
@@ -709,6 +757,7 @@ body.finale { background: #000; }
     <div id="influence-dots" class="dots"></div>
   </div>
 
+  <button id="btn-aide" class="card icon-btn" title="Comment jouer">?</button>
   <button id="btn-chronique" class="card icon-btn only-mobile" title="Chronique">☰</button>
   <button id="btn-secrets" class="card icon-btn" title="Secrets">✦ <span id="secret-count">0</span></button>
 </header>
@@ -743,6 +792,21 @@ body.finale { background: #000; }
 <div id="interventions" class="hidden">
   <div class="interv-head">Vous pouvez agir, un peu.</div>
   <div id="interv-list" class="interv-list"></div>
+</div>
+
+<!-- Conseil du moment : il disparaît dès que le geste est fait. -->
+<div id="coach" class="coach hidden">
+  <span id="coach-text"></span>
+  <button id="coach-close" title="Ne plus afficher">×</button>
+</div>
+
+<!-- Comment jouer -->
+<div id="guide-panel" class="overlay hidden">
+  <div class="intro-card guide-card">
+    <h2>Comment jouer</h2>
+    <div id="guide-body"></div>
+    <button id="guide-close" class="primary">J'ai compris</button>
+  </div>
 </div>
 
 <!-- Secrets -->
@@ -2725,32 +2789,32 @@ const __x = {};
 // doit pouvoir passer de la vanne au silence en une seconde.
 
 const SPEECH = {
-  dormir: ['Zzz…', 'mmh…', '…encore cinq minutes', 'Zzz… non… pas le formulaire…', '…pas les impôts…'],
+  dormir: ['Zzz…', 'mmh…', '…encore cinq minutes', 'Zzz… non… pas le formulaire…', '…pas les impôts…', '…la porte… j\'ai fermé la porte ?', 'Zzz… non, pas le 4e…', 'mmh… deux minutes'],
   reveil: ['Déjà ?', 'Non.', 'Il est quelle heure là', 'J\'ai dormi 20 minutes.', 'Qui a inventé le lundi'],
-  manger: ['Miam', 'C\'est froid.', 'Je mange sain à partir de demain', 'Encore des pâtes', 'Y\'a plus de pain'],
-  cuisiner: ['Ça va être bon ça', 'J\'improvise', 'C\'est pas censé fumer', 'Recette de mamie', 'Bon. C\'est carbonisé.'],
-  douche: ['♪♪♪', 'L\'eau est glacée', 'Y\'a jamais de pression', 'Je chante pas fort quand même'],
-  tv: ['Mais bien sûr…', 'Il va se faire avoir', 'Rediffusion. Encore.', 'C\'était mieux avant', 'Chut, ça commence'],
-  musique: ['♪', '♫', 'Cette basse !', 'Je baisse dans dix minutes', '♪ ♫ ♪'],
-  menage: ['Ça se voit que je viens de faire ?', 'D\'où vient cette chaussette', 'Trois heures pour ça', 'Bon, j\'ai poussé sous le lit'],
-  travail: ['Encore un mail', 'Je réponds demain', 'Ils sont sérieux ?', 'Bon. Je m\'y mets.', 'Réunion pour dire qu\'on refera une réunion'],
-  ennui: ['Bon.', '…', 'Il se passe rien', 'Je vais regarder par la fenêtre', 'J\'ai fini internet'],
-  telephone: ['Ouiii je sais', 'Maman je te rappelle', 'Non j\'ai pas oublié', 'Allô ? Allô ? Je te perds', 'C\'est une arnaque, encore'],
-  lecture: ['Deux pages, et je dors', 'Ah quand même', 'Je relis la même ligne'],
+  manger: ['Miam', 'C\'est froid.', 'Je mange sain à partir de demain', 'Encore des pâtes', 'Y\'a plus de pain', 'Ça se mange encore ça ?', 'Debout devant le frigo, comme un roi', 'Y\'a que du fromage'],
+  cuisiner: ['Ça va être bon ça', 'J\'improvise', 'C\'est pas censé fumer', 'Recette de mamie', 'Bon. C\'est carbonisé.', 'J\'ai mis quoi déjà ?', 'On verra bien', 'Ça sent bon quand même', 'Bon. On commande.'],
+  douche: ['♪♪♪', 'L\'eau est glacée', 'Y\'a jamais de pression', 'Je chante pas fort quand même', 'Encore une coupure'],
+  tv: ['Mais bien sûr…', 'Il va se faire avoir', 'Rediffusion. Encore.', 'C\'était mieux avant', 'Chut, ça commence', 'Encore lui', 'C\'est quoi ce programme', 'Je dormais pas, je réfléchissais', 'Trois chaînes, rien à voir'],
+  musique: ['♪', '♫', 'Cette basse !', 'Je baisse dans dix minutes', '♪ ♫ ♪', 'C\'est pas si fort'],
+  menage: ['Ça se voit que je viens de faire ?', 'D\'où vient cette chaussette', 'Trois heures pour ça', 'Bon, j\'ai poussé sous le lit', 'Qui met du sable ici', 'Ça sert à rien, ça revient', 'Et voilà, cassé'],
+  travail: ['Encore un mail', 'Je réponds demain', 'Ils sont sérieux ?', 'Bon. Je m\'y mets.', 'Réunion pour dire qu\'on refera une réunion', 'Je réponds lundi', 'C\'était urgent hier'],
+  ennui: ['Bon.', '…', 'Il se passe rien', 'Je vais regarder par la fenêtre', 'J\'ai fini internet', 'Bon…', 'Faudrait que je fasse un truc', 'Je vais ranger. Bientôt.', 'Il pleut, tiens', 'Rien du tout'],
+  telephone: ['Ouiii je sais', 'Maman je te rappelle', 'Non j\'ai pas oublié', 'Allô ? Allô ? Je te perds', 'C\'est une arnaque, encore', 'Oui maman', 'Non j\'ai mangé', 'Je te rappelle, quelqu\'un sonne', 'Ça capte mal chez moi'],
+  lecture: ['Deux pages, et je dors', 'Ah quand même', 'Je relis la même ligne', 'Qui est ce personnage déjà'],
   sport: ['Trois. Quatre. …Trois.', 'Demain j\'y retourne', 'Ça compte les escaliers ?', 'Ça brûle'],
-  jeu: ['NON !', 'C\'était pas moi', 'Dernière partie', 'Dernière partie (2)', 'Cette manette est cassée'],
+  jeu: ['NON !', 'C\'était pas moi', 'Dernière partie', 'Dernière partie (2)', 'Cette manette est cassée', 'Non mais NON', 'Une dernière', 'Une dernière (3)', 'C\'est la manette'],
   fete: ['SANTÉ !', 'On baisse un peu ?', 'Qui a invité lui ?', 'Il est 3h ?!', 'Le voisin va monter'],
   invite: ['Entre, entre', 'Excuse le bazar', 'T\'as mangé ?', 'Assieds-toi, pas là, la chaise est cassée'],
   flirt: ['…', 'Tu fais quoi ce soir ?', 'J\'ai pensé à toi', 'C\'est bête, hein', 'Tu veux monter ?'],
   dispute: ['Non mais VAS-Y', 'C\'est toujours pareil', 'Je rêve', 'Baisse d\'un ton', 'Trente ans que ça dure'],
   plainte: ['IL EST MINUIT !', 'Y\'a des gens qui travaillent !', 'Je monte, moi', 'C\'est la dernière fois'],
-  espionnage: ['Tiens tiens…', 'Il rentre à cette heure-là', 'Je regarde pas, je passais', 'Elle a changé de voiture'],
+  espionnage: ['Tiens tiens…', 'Il rentre à cette heure-là', 'Je regarde pas, je passais', 'Elle a changé de voiture', 'À cette heure-ci…', 'Je passais, hein', 'Encore un colis, elle'],
   bricolage: ['Je vais juste resserrer un truc', 'C\'était pas censé faire ça', 'Bon. Faut couper l\'eau.', 'Presque'],
   betise: ['C\'est pas moi', 'C\'était déjà comme ça', 'Le chat l\'a fait', 'Je testais', 'Ça part au lavage non ?'],
   excuse_ado: ['Y\'avait grève', 'Mon tel était mort', 'On révisait', 'C\'est ma prof qui m\'a agressé', 'Je te jure sur ma vie'],
-  triste: ['…', 'Ça va aller', 'C\'est rien', 'Je suis fatigué c\'est tout'],
-  stresse: ['Ça va, ça va, ça va', 'Faut que je réfléchisse', 'Je gère.', 'Je gère pas.'],
-  heureux: ['Belle journée', '♪', 'Franchement, ça va', 'J\'ai bien fait de rester'],
+  triste: ['…', 'Ça va aller', 'C\'est rien', 'Je suis fatigué c\'est tout', 'Je suis juste fatigué', 'Ça passera'],
+  stresse: ['Ça va, ça va, ça va', 'Faut que je réfléchisse', 'Je gère.', 'Je gère pas.', 'Ça va aller. Ça va aller.', 'Je gère pas du tout', 'Demain je m\'en occupe'],
+  heureux: ['Belle journée', '♪', 'Franchement, ça va', 'J\'ai bien fait de rester', 'Belle lumière aujourd\'hui', 'Tiens, le chat est revenu'],
   bebe: ['OUIN', 'OUIIIN', 'areuh', 'OUIN OUIN', '…', 'AREUH'],
   vieux: ['De mon temps…', 'Le quartier a changé', 'J\'ai connu ça vide, ici', 'Faut que je m\'assoie'],
   barbecue: ['Un mètre carré, ça suffit', 'Fenêtres fermées les gars !', 'C\'est de la fumée aromatique', 'Le syndic peut rien dire'],
@@ -8218,77 +8282,192 @@ __x.drawSpeech = drawSpeech;
 return __x;
 })();
 
+/* src/render/interior-plan.js */
+__m["src/render/interior-plan.js"] = (function () {
+const __x = {};
+// Le plan d'un appartement.
+//
+// Tous les logements se ressemblaient : mêmes meubles, mêmes places, dans
+// le même ordre de gauche à droite, seules les couleurs changeaient. Au
+// bout de cinq fenêtres on avait tout vu.
+//
+// Ici, chaque appartement tire une fois pour toutes son propre plan : une
+// disposition parmi plusieurs, un sens de lecture, des meubles en
+// variantes, et surtout des objets qui appartiennent à ses habitants — la
+// guitare du musicien, l'établi du bricoleur, les jouets des enfants, les
+// bouteilles de celui qui boit trop.
+
+const { RNG } = __m["src/core/rng.js"];
+
+/**
+ * Dispositions possibles, en bandes de gauche à droite.
+ * Le studio n'a pas de chambre séparée ; la grande famille a une penderie
+ * là où le célibataire a un bureau.
+ */
+const ARRANGEMENTS = [
+  ['entree', 'cuisine', 'table', 'salon', 'fenetre', 'lit', 'bain'],
+  ['entree', 'salon', 'fenetre', 'table', 'cuisine', 'lit', 'bain'],
+  ['entree', 'lit', 'salon', 'fenetre', 'table', 'cuisine', 'bain'],
+  ['bain', 'cuisine', 'fenetre', 'table', 'salon', 'lit', 'entree'],
+  ['entree', 'table', 'cuisine', 'fenetre', 'salon', 'lit', 'bain'],
+];
+
+/** Meubles secondaires : tout le monde n'a pas les mêmes. */
+const EXTRAS = ['bibliotheque', 'penderie', 'bureau', 'commode', 'buffet'];
+
+/**
+ * Le plan, calculé une fois et gardé sur l'appartement.
+ * Tout est tiré d'une graine dérivée de l'identifiant : le même logement
+ * garde son plan pendant toute la partie, et deux parties différentes ne
+ * donnent pas le même immeuble.
+ */
+function planFor(apt) {
+  if (apt._plan) return apt._plan;
+  const rng = new RNG(`plan-${apt.id}-${apt.floor}-${apt.col}`);
+
+  const studio = apt.rooms <= 1;
+  const grand = apt.rooms >= 3;
+
+  const order = rng.pick(studio ? ARRANGEMENTS.slice(0, 3) : ARRANGEMENTS);
+  const mirror = rng.chance(0.45);
+
+  // On répartit les bandes sur la largeur, avec des largeurs inégales :
+  // une salle de bain prend moins de place qu'un salon.
+  const weights = {
+    entree: 0.7, cuisine: 1.25, table: 1.05, salon: 1.5,
+    fenetre: 0.95, lit: 1.2, bain: 0.6,
+  };
+  const total = order.reduce((s, z) => s + weights[z], 0);
+  const zones = {};
+  let cursor = 0;
+  for (const z of order) {
+    const w = weights[z] / total;
+    const centre = cursor + w / 2;
+    zones[z] = mirror ? 1 - centre : centre;
+    cursor += w;
+  }
+
+  const plan = {
+    order,
+    mirror,
+    zones,
+    studio,
+    // Variantes de mobilier.
+    sofa: rng.int(0, 2),          // 0 deux places, 1 d'angle, 2 deux fauteuils
+    bed: studio ? rng.int(1, 2) : rng.int(0, 1), // 0 double, 1 simple, 2 clic-clac
+    table: rng.int(0, 2),         // 0 rectangulaire, 1 ronde, 2 bistrot
+    kitchen: rng.int(0, 1),
+    rug: rng.int(0, 2),
+    tv: rng.chance(0.82),
+    extras: rng.pickMany(EXTRAS, grand ? rng.int(1, 2) : rng.int(0, 1)),
+    wallDecor: rng.int(0, 3),     // cadres, affiches, horloge, miroir
+    wallpaper: rng.int(0, 3),
+    lampStyle: rng.int(0, 1),
+    // Décalages pour que deux plans identiques ne soient jamais superposables.
+    jitter: Array.from({ length: 8 }, () => rng.float(-0.012, 0.012)),
+  };
+  apt._plan = plan;
+  return plan;
+}
+
+/**
+ * Ce que les habitants laissent traîner.
+ *
+ * C'est ce qui différencie deux appartements bien plus sûrement que la
+ * couleur du canapé : on doit pouvoir deviner qui vit là sans lire la fiche.
+ */
+function propsFor(world, apt, occupants) {
+  const key = occupants.map((p) => p.id).join(',');
+  if (apt._propsKey === key) return apt._props;
+
+  const props = [];
+  const has = (fn) => occupants.some(fn);
+
+  if (has((p) => p.job.id === 'musicien')) props.push('guitare');
+  if (has((p) => p.job.id === 'artiste')) props.push('chevalet');
+  if (has((p) => p.personality.has('bricoleur'))) props.push('etabli');
+  if (has((p) => p.personality.has('cuisinier_ne'))) props.push('casseroles');
+  if (has((p) => p.personality.get('ouverture') > 0.68)) props.push('livres');
+  if (has((p) => p.age < 10)) props.push('jouets');
+  if (has((p) => p.age < 2)) props.push('berceau');
+  if (has((p) => p.addiction > 0.35)) props.push('bouteilles');
+  if (has((p) => p.job.id === 'etudiant')) props.push('cartons');
+  if (has((p) => p.isOld)) props.push('napperon');
+  if (has((p) => p.tags.has('crise'))) props.push('courrier');
+  if (has((p) => p.personality.has('organise'))) props.push('tableau');
+  if (has((p) => p.job.id === 'chomage')) props.push('ordinateur');
+
+  apt._propsKey = key;
+  apt._props = props;
+  return props;
+}
+__x.EXTRAS = EXTRAS;
+__x.planFor = planFor;
+__x.propsFor = propsFor;
+return __x;
+})();
+
 /* src/render/apartment.js */
 __m["src/render/apartment.js"] = (function () {
 const __x = {};
 // L'intérieur d'un appartement, vu en coupe.
 //
-// Quand le mur disparaît, il faut que la pièce raconte déjà quelque chose :
-// qui vit là, s'il range, s'il a de l'argent, s'il est seul. Le décor est
-// tiré de l'appartement et de ses occupants — deux logements du même
-// immeuble ne se ressemblent jamais tout à fait.
+// Quand le mur disparaît, la pièce doit déjà raconter quelque chose : qui
+// vit là, s'il range, s'il a de l'argent, s'il est seul. Chaque logement
+// tire son propre plan (voir interior-plan.js) — disposition, sens de
+// lecture, variantes de meubles — et se remplit d'objets qui appartiennent
+// à ses habitants. Deux appartements ne doivent jamais se ressembler.
 
 const { PALETTE, pickStable, shade, rgba, ambientLight, skyColors, mixHex } = __m["src/render/palette.js"];
 const { drawCharacter, drawSpeech, roundRect, appearance } = __m["src/render/character.js"];
+const { planFor, propsFor } = __m["src/render/interior-plan.js"];
 
-/** Où se tient quelqu'un en fonction de ce qu'il fait. */
-const ZONES = {
-  entree: 0.07,
-  cuisine: 0.22,
-  table: 0.37,
-  salon: 0.54,
-  fenetre: 0.70,
-  lit: 0.85,
-  bain: 0.955,
-};
-
-function zoneFor(person) {
+/** Où se tient quelqu'un en fonction de ce qu'il fait, dans SON appartement. */
+function zoneFor(person, apt) {
+  const z = apt ? planFor(apt).zones : null;
+  const at = (name, fallback) => (z ? z[name] : fallback);
   const id = person.action?.id;
   switch (id) {
     case 'dormir':
-    case 'soigner': return ZONES.lit;
-    case 'insomnie': return ZONES.fenetre;
-    case 'cuisiner': return ZONES.cuisine;
-    case 'manger': return ZONES.table;
-    case 'douche': return ZONES.bain;
+    case 'soigner': return at('lit', 0.85);
+    case 'insomnie': return at('fenetre', 0.7);
+    case 'cuisiner': return at('cuisine', 0.22);
+    case 'manger':
+    case 'famille_temps': return at('table', 0.37);
+    case 'douche': return at('bain', 0.95);
     case 'tv':
     case 'jeu':
     case 'ruminer':
     case 'boire':
-    case 'lire': return ZONES.salon;
-    case 'teletravail':
-    case 'chercher_emploi': return ZONES.table;
-    case 'menage': return 0.3;
-    case 'bricoler': return 0.45;
-    case 'sport': return 0.6;
-    case 'espionner': return ZONES.entree;
-    case 'telephoner': return ZONES.fenetre;
     case 'musique':
     case 'fete':
-    case 'invite': return ZONES.salon;
-    case 'famille_temps': return ZONES.table;
-    case 'betise': return 0.66;
-    default: return ZONES.salon;
+    case 'invite':
+    case 'lire': return at('salon', 0.54);
+    case 'teletravail':
+    case 'chercher_emploi': return at('table', 0.37);
+    case 'espionner': return at('entree', 0.07);
+    case 'telephoner': return at('fenetre', 0.7);
+    case 'menage': return (at('cuisine', 0.22) + at('salon', 0.54)) / 2;
+    case 'bricoler': return (at('entree', 0.07) + at('salon', 0.54)) / 2;
+    case 'sport': return at('salon', 0.54);
+    case 'betise': return (at('salon', 0.54) + at('lit', 0.85)) / 2;
+    default: return at('salon', 0.54);
   }
 }
 
 /** Fait glisser les habitants vers leur zone. Purement visuel. */
 function updatePositions(world, apt, dt) {
   const occupants = occupantsOf(world, apt);
-  occupants.forEach((p, i) => {
-    const base = zoneFor(p);
-    // On décale les gens qui partagent une zone pour qu'ils ne se superposent pas.
-    const same = occupants.filter((q) => Math.abs(zoneFor(q) - base) < 0.02);
+  occupants.forEach((p) => {
+    const base = zoneFor(p, apt);
+    const same = occupants.filter((q) => Math.abs(zoneFor(q, apt) - base) < 0.02);
     const rank = same.indexOf(p);
-    // Assez d'écart pour que personne ne se superpose, et un rang de
-    // profondeur pour que le groupe ait de l'épaisseur.
     const offset = same.length > 1 ? (rank - (same.length - 1) / 2) * 0.115 : 0;
     p.zRank = same.length > 1 ? (rank % 2) : 0;
-    const target = Math.max(0.04, Math.min(0.96, base + offset));
+    const target = Math.max(0.05, Math.min(0.95, base + offset));
     const dx = target - p.pos.x;
     if (Math.abs(dx) > 0.004) {
-      const step = Math.sign(dx) * Math.min(Math.abs(dx), dt * 0.22);
-      p.pos.x += step;
+      p.pos.x += Math.sign(dx) * Math.min(Math.abs(dx), dt * 0.22);
       p.facing = Math.sign(dx) || p.facing;
       p.walking = true;
     } else {
@@ -8302,387 +8481,676 @@ function occupantsOf(world, apt) {
   return world.occupancy.get(apt.id) ?? [];
 }
 
-/**
- * Dessine l'intérieur.
- * @param {object} rect { x, y, w, h } en pixels écran
- */
+// --- Scène ------------------------------------------------------------------
+
 function drawInterior(ctx, world, apt, rect, time, opts = {}) {
   const { x, y, w, h } = rect;
-  const detail = opts.detail ?? 1; // 0 = vignette lointaine, 1 = plein écran
-  const style = apt.style % 6;
+  const detail = opts.detail ?? 1;
+  const dt = opts.dt ?? 1 / 60;
+  const plan = planFor(apt);
   const occupants = occupantsOf(world, apt);
-  const messy = clutterLevel(world, apt, occupants);
-  const wealth = wealthLevel(world, occupants);
+  const props = propsFor(world, apt, occupants);
+  const messy = clutterLevel(apt, occupants);
+  const wealth = wealthLevel(occupants);
 
   const floorH = h * 0.14;
   const floorY = y + h - floorH;
-  const wallColor = PALETTE.wall[style];
-  const floorColor = PALETTE.floor[apt.id % PALETTE.floor.length];
+  const wallColor = PALETTE.wall[apt.style % PALETTE.wall.length];
+  const floorColor = PALETTE.floor[(apt.id + plan.rug) % PALETTE.floor.length];
 
   ctx.save();
   ctx.beginPath();
   ctx.rect(x, y, w, h);
   ctx.clip();
 
-  // --- Murs et sol ---
-  ctx.fillStyle = wallColor;
-  ctx.fillRect(x, y, w, h);
+  const U = (u) => x + u * w;
+  const V = floorY;
+  const S = { ctx, x, y, w, h, U, V, detail, plan, apt, wealth, messy };
 
-  // Papier peint : rayures ou motif discret selon le style.
-  if (detail > 0.4) {
-    ctx.save();
-    ctx.globalAlpha = 0.16;
-    ctx.fillStyle = PALETTE.wallpaper[style % 3];
-    if (style % 3 === 0) {
-      for (let i = 0; i < w; i += Math.max(8, w * 0.035)) ctx.fillRect(x + i, y, Math.max(3, w * 0.012), h);
-    } else if (style % 3 === 1) {
-      const s = Math.max(10, w * 0.05);
-      for (let i = 0; i < w; i += s) {
-        for (let j = 0; j < h; j += s) {
-          ctx.beginPath();
-          ctx.arc(x + i + s / 2, y + j + s / 2, s * 0.12, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    }
-    ctx.restore();
-  }
+  drawWalls(S, wallColor, floorColor);
+  drawBackWindow(S, world, time);
 
-  // Plinthe et sol.
-  ctx.fillStyle = floorColor;
-  ctx.fillRect(x, floorY, w, floorH);
-  ctx.fillStyle = rgba(shade(floorColor, -0.3), 0.5);
-  ctx.fillRect(x, floorY, w, Math.max(1, h * 0.008));
-  if (detail > 0.5) {
-    ctx.strokeStyle = rgba(shade(floorColor, -0.35), 0.35);
-    ctx.lineWidth = 1;
-    for (let i = 0; i < w; i += Math.max(14, w * 0.06)) {
-      ctx.beginPath();
-      ctx.moveTo(x + i, floorY);
-      ctx.lineTo(x + i - w * 0.02, y + h);
-      ctx.stroke();
+  // Le mobilier suit le plan : chaque bande est dessinée à sa place.
+  for (const zone of plan.order) {
+    switch (zone) {
+      case 'entree': drawEntrance(S); break;
+      case 'cuisine': drawKitchen(S); break;
+      case 'table': drawTable(S); break;
+      case 'salon': drawLiving(S, time); break;
+      case 'lit': drawBed(S, occupants); break;
+      case 'bain': drawBathroom(S); break;
+      default: break;
     }
   }
 
-  const U = (u) => x + u * w;        // coordonnée horizontale normalisée
-  const V = floorY;                   // ligne de sol
-
-  // --- Fenêtre du fond : elle laisse entrer l'heure qu'il est ---
-  drawBackWindow(ctx, world, U(ZONES.fenetre), y + h * 0.16, w * 0.15, h * 0.4, time);
-
-  // --- Mobilier, de gauche à droite ---
-  drawEntrance(ctx, U(ZONES.entree), V, w, h, detail);
-  drawKitchen(ctx, U(ZONES.cuisine), V, w, h, style, wealth, detail, messy);
-  drawTable(ctx, U(ZONES.table), V, w, h, style, detail);
-  drawLiving(ctx, U(ZONES.salon), V, w, h, style, wealth, detail, apt);
-  drawBed(ctx, U(ZONES.lit), V, w, h, style, detail);
-  drawBathroom(ctx, U(ZONES.bain), V, w, h, detail);
-
-  // Détails qui font l'appartement : plantes, cadres, désordre.
   if (detail > 0.35) {
+    drawExtras(S);
+    drawWallDecor(S, occupants);
+    drawProps(S, props);
     for (let i = 0; i < apt.plants; i++) {
-      drawPlant(ctx, U(0.13 + i * 0.29), V, h * (0.12 + (i % 2) * 0.04));
+      drawPlant(S.ctx, U(0.11 + i * 0.31 + plan.jitter[i % 8]), V, h * (0.12 + (i % 2) * 0.04));
     }
-    drawFrames(ctx, x, y, w, h, apt, occupants, detail);
-    if (messy > 0.3) drawClutter(ctx, x, floorY, w, h, messy, apt.id);
+    if (messy > 0.3) drawClutter(S, messy);
   }
 
-  // --- Lumière ---
-  const amb = ambientLight(world.clock.dayFraction);
-  const lampOn = apt.lightOn;
-  if (amb < 0.75) {
-    // Nuit : on assombrit tout, puis on rallume autour des lampes.
-    ctx.fillStyle = rgba('#0b1020', (1 - amb) * (lampOn ? 0.35 : 0.72));
-    ctx.fillRect(x, y, w, h);
-    if (lampOn) {
-      const g = ctx.createRadialGradient(U(0.5), y + h * 0.3, 0, U(0.5), y + h * 0.3, w * 0.62);
-      g.addColorStop(0, 'rgba(255,205,130,0.34)');
-      g.addColorStop(1, 'rgba(255,190,120,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(x, y, w, h);
-    }
-  }
-  // Lueur de télévision : bleutée, clignotante, sur le mur d'en face.
-  if (apt.tvOn) {
-    const flick = 0.16 + Math.sin(time * 9 + apt.id) * 0.06 + Math.sin(time * 23) * 0.03;
-    const g = ctx.createRadialGradient(U(0.5), y + h * 0.55, 0, U(0.5), y + h * 0.55, w * 0.45);
-    g.addColorStop(0, `rgba(150,205,235,${Math.max(0, flick)})`);
-    g.addColorStop(1, 'rgba(150,205,235,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(x, y, w, h);
-  }
-
-  // --- Les habitants ---
-  // Le pas de temps est indispensable : c'est lui qui pilote le lissage des
-  // articulations, donc toute l'animation.
-  const charH = h * 0.54;
-  const dt = opts.dt ?? 1 / 60;
-  // Les gens du fond se dessinent d'abord, un peu plus petits et plus haut :
-  // c'est ce qui empêche un groupe de ressembler à une frise.
-  const sorted = [...occupants].sort((a, b) => (b.zRank ?? 0) - (a.zRank ?? 0) || a.pos.x - b.pos.x);
-  for (const p of sorted) {
-    const depth = p.zRank ?? 0;
-    const px = U(p.pos.x);
-    let py = V + h * 0.02 - depth * h * 0.035;
-    let pose;
-    if (p.action?.id === 'dormir' || p.action?.id === 'soigner') {
-      py = V - h * 0.055;
-      pose = 'couche';
-    } else if (p.age < 2) {
-      pose = 'bebe';
-      py = V;
-    }
-    drawCharacter(ctx, p, px, py, charH * (1 - depth * 0.07), { time, dt, pose, facing: p.facing });
-  }
-
-  // Bulles au-dessus, après tout le monde, pour qu'elles ne soient pas cachées.
-  if (detail > 0.55) {
-    for (const p of sorted) {
-      if (!p.speech) continue;
-      const alpha = Math.min(1, p.speech.ttl / 8);
-      ctx.globalAlpha = alpha;
-      drawSpeech(ctx, p.speech.text, U(p.pos.x), V - charH * 0.98, Math.min(w * 0.42, 190), Math.min(1.35, w / 420));
-      ctx.globalAlpha = 1;
-    }
-  }
+  drawLight(S, world, apt, time);
+  drawPeople(S, occupants, time, dt, detail);
 
   ctx.restore();
 }
 
-// --- Éléments de décor ------------------------------------------------------
+// --- Enveloppe --------------------------------------------------------------
 
-function drawBackWindow(ctx, world, cx, cy, w, h, time) {
+function drawWalls(S, wallColor, floorColor) {
+  const { ctx, x, y, w, h, V, detail, plan } = S;
+  ctx.fillStyle = wallColor;
+  ctx.fillRect(x, y, w, h);
+
+  if (detail > 0.4) {
+    ctx.save();
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = PALETTE.wallpaper[plan.wallpaper % PALETTE.wallpaper.length];
+    const s = Math.max(10, w * 0.045);
+    if (plan.wallpaper === 0) {
+      for (let i = 0; i < w; i += Math.max(8, w * 0.035)) ctx.fillRect(x + i, y, Math.max(3, w * 0.012), h);
+    } else if (plan.wallpaper === 1) {
+      for (let i = 0; i < w; i += s) {
+        for (let j = 0; j < h; j += s) {
+          ctx.beginPath();
+          ctx.arc(x + i + s / 2, y + j + s / 2, s * 0.11, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } else if (plan.wallpaper === 2) {
+      // Frise à mi-hauteur : très courant, et ça casse le grand aplat.
+      ctx.globalAlpha = 0.3;
+      ctx.fillRect(x, y + h * 0.42, w, h * 0.02);
+      ctx.fillRect(x, y + h * 0.46, w, h * 0.006);
+    }
+    ctx.restore();
+  }
+
+  ctx.fillStyle = floorColor;
+  ctx.fillRect(x, V, w, h - (V - y));
+  ctx.fillStyle = rgba(shade(floorColor, -0.3), 0.5);
+  ctx.fillRect(x, V, w, Math.max(1, h * 0.008));
+  if (detail > 0.5) {
+    ctx.strokeStyle = rgba(shade(floorColor, -0.35), 0.3);
+    ctx.lineWidth = 1;
+    for (let i = 0; i < w; i += Math.max(14, w * 0.06)) {
+      ctx.beginPath();
+      ctx.moveTo(x + i, V);
+      ctx.lineTo(x + i - w * 0.02, y + h);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawBackWindow(S, world, time) {
+  const { ctx, y, h, U, plan } = S;
+  const cx = U(plan.zones.fenetre);
+  const cy = y + h * 0.15;
+  const ww = S.w * 0.14;
+  const wh = h * 0.4;
   const sky = skyColors(world.clock.dayFraction, world.clock.season);
-  const g = ctx.createLinearGradient(0, cy, 0, cy + h);
+  const g = ctx.createLinearGradient(0, cy, 0, cy + wh);
   g.addColorStop(0, sky.top);
   g.addColorStop(1, sky.bot);
   ctx.fillStyle = g;
-  ctx.fillRect(cx - w / 2, cy, w, h);
+  ctx.fillRect(cx - ww / 2, cy, ww, wh);
 
-  // Immeuble d'en face : on n'est jamais seul dans une rue.
-  ctx.fillStyle = rgba('#2c3444', 0.55);
-  ctx.fillRect(cx - w / 2, cy + h * 0.55, w, h * 0.45);
-  ctx.fillStyle = rgba('#ffcf7a', 0.5 + Math.sin(time * 0.5) * 0.1);
-  ctx.fillRect(cx - w * 0.28, cy + h * 0.66, w * 0.16, h * 0.12);
-  ctx.fillRect(cx + w * 0.1, cy + h * 0.75, w * 0.14, h * 0.1);
+  ctx.fillStyle = rgba('#2c3444', 0.5);
+  ctx.fillRect(cx - ww / 2, cy + wh * 0.55, ww, wh * 0.45);
+  ctx.fillStyle = rgba('#ffcf7a', 0.45 + Math.sin(time * 0.5 + S.apt.id) * 0.12);
+  ctx.fillRect(cx - ww * 0.28, cy + wh * 0.66, ww * 0.16, wh * 0.12);
 
-  // Croisillons.
   ctx.strokeStyle = PALETTE.frame;
-  ctx.lineWidth = Math.max(2, w * 0.055);
-  ctx.strokeRect(cx - w / 2, cy, w, h);
+  ctx.lineWidth = Math.max(2, ww * 0.055);
+  ctx.strokeRect(cx - ww / 2, cy, ww, wh);
   ctx.beginPath();
   ctx.moveTo(cx, cy);
-  ctx.lineTo(cx, cy + h);
-  ctx.moveTo(cx - w / 2, cy + h / 2);
-  ctx.lineTo(cx + w / 2, cy + h / 2);
+  ctx.lineTo(cx, cy + wh);
+  ctx.moveTo(cx - ww / 2, cy + wh / 2);
+  ctx.lineTo(cx + ww / 2, cy + wh / 2);
   ctx.stroke();
-}
 
-function drawEntrance(ctx, cx, floorY, w, h, detail) {
-  const dw = w * 0.075;
-  const dh = h * 0.44;
-  ctx.fillStyle = PALETTE.woodDark;
-  ctx.fillRect(cx - dw / 2, floorY - dh, dw, dh);
-  ctx.strokeStyle = rgba('#000', 0.25);
-  ctx.lineWidth = 1;
-  ctx.strokeRect(cx - dw / 2, floorY - dh, dw, dh);
-  if (detail > 0.5) {
-    ctx.fillStyle = PALETTE.metal;
+  // Un rideau d'un côté, pas systématiquement du même.
+  if (S.detail > 0.5) {
+    const side = plan.mirror ? -1 : 1;
+    ctx.fillStyle = rgba(pickStable(PALETTE.curtains, `int${S.apt.id}`), 0.85);
     ctx.beginPath();
-    ctx.arc(cx + dw * 0.3, floorY - dh * 0.5, Math.max(1.5, w * 0.006), 0, Math.PI * 2);
-    ctx.fill();
-    // Le porte-manteau, toujours trop chargé.
-    ctx.strokeStyle = PALETTE.wood;
-    ctx.lineWidth = Math.max(1.5, w * 0.006);
-    ctx.beginPath();
-    ctx.moveTo(cx + dw * 0.8, floorY - dh * 1.02);
-    ctx.lineTo(cx + dw * 1.6, floorY - dh * 1.02);
-    ctx.stroke();
-    ctx.fillStyle = PALETTE.fabric[2];
-    roundRect(ctx, cx + dw * 0.9, floorY - dh * 1.0, dw * 0.5, dh * 0.4, 3);
-    ctx.fill();
-  }
-}
-
-function drawKitchen(ctx, cx, floorY, w, h, style, wealth, detail, messy) {
-  const cw = w * 0.17;
-  const ch = h * 0.16;
-  // Plan de travail.
-  ctx.fillStyle = shade(PALETTE.wood, 0.15);
-  ctx.fillRect(cx - cw / 2, floorY - ch, cw, ch);
-  ctx.fillStyle = shade(PALETTE.wood, -0.2);
-  ctx.fillRect(cx - cw / 2, floorY - ch, cw, h * 0.018);
-  if (detail > 0.4) {
-    ctx.strokeStyle = rgba('#000', 0.18);
-    ctx.beginPath();
-    ctx.moveTo(cx, floorY - ch + h * 0.018);
-    ctx.lineTo(cx, floorY);
-    ctx.stroke();
-    // Plaques et casserole.
-    ctx.fillStyle = '#333a42';
-    ctx.fillRect(cx - cw * 0.4, floorY - ch - h * 0.012, cw * 0.35, h * 0.012);
-    ctx.fillStyle = PALETTE.metal;
-    roundRect(ctx, cx - cw * 0.36, floorY - ch - h * 0.045, cw * 0.26, h * 0.034, 2);
-    ctx.fill();
-    // Frigo, couvert d'aimants.
-    const fw = cw * 0.42;
-    const fh = h * 0.3;
-    ctx.fillStyle = wealth > 0.6 ? '#d8dde2' : '#e8e2d6';
-    ctx.fillRect(cx + cw * 0.55, floorY - fh, fw, fh);
-    ctx.strokeStyle = rgba('#000', 0.2);
-    ctx.strokeRect(cx + cw * 0.55, floorY - fh, fw, fh);
-    ctx.fillStyle = PALETTE.accent;
-    for (let i = 0; i < 3; i++) {
-      ctx.fillRect(cx + cw * 0.6 + (i % 2) * fw * 0.4, floorY - fh * 0.85 + i * fh * 0.16, fw * 0.22, fh * 0.1);
-    }
-    // Vaisselle en attente : chez les désordonnés, il y en a toujours.
-    if (messy > 0.45) {
-      ctx.fillStyle = '#e6e0d4';
-      for (let i = 0; i < 3; i++) {
-        ctx.beginPath();
-        ctx.ellipse(cx + cw * 0.1 + i * w * 0.012, floorY - ch - h * 0.014 - i * h * 0.008, w * 0.016, h * 0.008, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-  }
-}
-
-function drawTable(ctx, cx, floorY, w, h, style, detail) {
-  const tw = w * 0.16;
-  const th = h * 0.012;
-  const ty = floorY - h * 0.15;
-  ctx.fillStyle = PALETTE.wood;
-  ctx.fillRect(cx - tw / 2, ty, tw, th);
-  ctx.fillRect(cx - tw * 0.4, ty + th, w * 0.012, floorY - ty - th);
-  ctx.fillRect(cx + tw * 0.34, ty + th, w * 0.012, floorY - ty - th);
-  if (detail > 0.45) {
-    // Chaises.
-    for (const side of [-1, 1]) {
-      const chx = cx + side * tw * 0.75;
-      ctx.fillStyle = PALETTE.woodDark;
-      ctx.fillRect(chx - w * 0.018, floorY - h * 0.09, w * 0.036, h * 0.008);
-      ctx.fillRect(chx - side * w * 0.016, floorY - h * 0.17, w * 0.008, h * 0.088);
-      ctx.fillRect(chx - w * 0.014, floorY - h * 0.082, w * 0.006, h * 0.082);
-      ctx.fillRect(chx + w * 0.008, floorY - h * 0.082, w * 0.006, h * 0.082);
-    }
-    // Ce qui traîne toujours sur une table : du courrier et un bol.
-    ctx.fillStyle = '#f2ece0';
-    ctx.fillRect(cx - tw * 0.3, ty - h * 0.012, tw * 0.28, h * 0.012);
-    ctx.fillStyle = PALETTE.fabric[3];
-    ctx.beginPath();
-    ctx.ellipse(cx + tw * 0.2, ty - h * 0.01, w * 0.014, h * 0.01, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function drawLiving(ctx, cx, floorY, w, h, style, wealth, detail, apt) {
-  // Tapis.
-  if (detail > 0.4) {
-    ctx.fillStyle = rgba(PALETTE.fabric[(apt.id + 2) % PALETTE.fabric.length], 0.55);
-    ctx.beginPath();
-    ctx.ellipse(cx, floorY + h * 0.012, w * 0.17, h * 0.022, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // Canapé.
-  const sw = w * 0.2;
-  const sh = h * 0.12;
-  const sy = floorY - sh;
-  const fab = PALETTE.fabric[apt.id % PALETTE.fabric.length];
-  ctx.fillStyle = fab;
-  roundRect(ctx, cx - sw / 2, sy, sw, sh, h * 0.02);
-  ctx.fill();
-  ctx.fillStyle = shade(fab, -0.2);
-  roundRect(ctx, cx - sw / 2, sy - h * 0.05, sw, h * 0.07, h * 0.02);
-  ctx.fill();
-  if (detail > 0.5) {
-    ctx.fillStyle = shade(fab, 0.25);
-    roundRect(ctx, cx - sw * 0.42, sy - h * 0.035, sw * 0.22, h * 0.04, h * 0.012);
-    ctx.fill();
-  }
-
-  // Télé, sur son meuble.
-  const tvw = w * 0.13;
-  const tvh = h * 0.09;
-  const tvy = floorY - h * 0.2;
-  ctx.fillStyle = PALETTE.woodDark;
-  ctx.fillRect(cx - tvw * 0.6, floorY - h * 0.09, tvw * 1.2, h * 0.09);
-  ctx.fillStyle = '#20262e';
-  ctx.fillRect(cx - tvw / 2, tvy, tvw, tvh);
-  if (apt.tvOn) {
-    ctx.fillStyle = mixHex('#8fd0e8', '#ffffff', 0.2 + Math.random() * 0.25);
-    ctx.fillRect(cx - tvw / 2 + 2, tvy + 2, tvw - 4, tvh - 4);
-  } else {
-    ctx.fillStyle = PALETTE.screen;
-    ctx.fillRect(cx - tvw / 2 + 2, tvy + 2, tvw - 4, tvh - 4);
-  }
-
-  // Lampe : c'est elle qui fait la fenêtre allumée vue de la rue.
-  if (detail > 0.45) {
-    const lx = cx + sw * 0.75;
-    ctx.strokeStyle = PALETTE.metal;
-    ctx.lineWidth = Math.max(1.5, w * 0.005);
-    ctx.beginPath();
-    ctx.moveTo(lx, floorY);
-    ctx.lineTo(lx, floorY - h * 0.24);
-    ctx.stroke();
-    ctx.fillStyle = apt.lightOn ? '#ffd98f' : '#cbbfa8';
-    ctx.beginPath();
-    ctx.moveTo(lx - w * 0.028, floorY - h * 0.24);
-    ctx.lineTo(lx + w * 0.028, floorY - h * 0.24);
-    ctx.lineTo(lx + w * 0.018, floorY - h * 0.30);
-    ctx.lineTo(lx - w * 0.018, floorY - h * 0.30);
+    ctx.moveTo(cx + side * ww * 0.5, cy - h * 0.02);
+    ctx.lineTo(cx + side * ww * 0.78, cy - h * 0.02);
+    ctx.lineTo(cx + side * ww * 0.66, cy + wh);
+    ctx.lineTo(cx + side * ww * 0.44, cy + wh);
     ctx.closePath();
     ctx.fill();
   }
 }
 
-function drawBed(ctx, cx, floorY, w, h, style, detail) {
-  const bw = w * 0.18;
+// --- Mobilier ---------------------------------------------------------------
+
+function drawEntrance(S) {
+  const { ctx, w, h, U, V, detail, plan } = S;
+  const cx = U(plan.zones.entree);
+  const dw = w * 0.07;
+  const dh = h * 0.45;
+  ctx.fillStyle = PALETTE.woodDark;
+  ctx.fillRect(cx - dw / 2, V - dh, dw, dh);
+  ctx.strokeStyle = rgba('#000', 0.22);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(cx - dw / 2, V - dh, dw, dh);
+  if (detail > 0.5) {
+    ctx.fillStyle = PALETTE.metal;
+    ctx.beginPath();
+    ctx.arc(cx + dw * 0.3, V - dh * 0.5, Math.max(1.5, w * 0.005), 0, Math.PI * 2);
+    ctx.fill();
+    // Le porte-manteau, toujours trop chargé.
+    const side = plan.mirror ? -1 : 1;
+    ctx.strokeStyle = PALETTE.wood;
+    ctx.lineWidth = Math.max(1.5, w * 0.005);
+    ctx.beginPath();
+    ctx.moveTo(cx + side * dw * 0.8, V - dh * 1.02);
+    ctx.lineTo(cx + side * dw * 1.7, V - dh * 1.02);
+    ctx.stroke();
+    ctx.fillStyle = PALETTE.fabric[(S.apt.id + 2) % PALETTE.fabric.length];
+    roundRect(ctx, cx + side * dw * 0.95 - dw * 0.25, V - dh, dw * 0.5, dh * 0.38, 3);
+    ctx.fill();
+  }
+}
+
+function drawKitchen(S) {
+  const { ctx, w, h, U, V, detail, plan, wealth, messy } = S;
+  const cx = U(plan.zones.cuisine);
+  const cw = w * 0.16;
+  const ch = h * 0.16;
+  ctx.fillStyle = shade(PALETTE.wood, 0.15);
+  ctx.fillRect(cx - cw / 2, V - ch, cw, ch);
+  ctx.fillStyle = shade(PALETTE.wood, -0.2);
+  ctx.fillRect(cx - cw / 2, V - ch, cw, h * 0.018);
+  if (detail < 0.4) return;
+
+  ctx.strokeStyle = rgba('#000', 0.16);
+  ctx.beginPath();
+  ctx.moveTo(cx, V - ch + h * 0.018);
+  ctx.lineTo(cx, V);
+  ctx.stroke();
+  ctx.fillStyle = '#333a42';
+  ctx.fillRect(cx - cw * 0.4, V - ch - h * 0.012, cw * 0.34, h * 0.012);
+  ctx.fillStyle = PALETTE.metal;
+  roundRect(ctx, cx - cw * 0.36, V - ch - h * 0.044, cw * 0.25, h * 0.033, 2);
+  ctx.fill();
+
+  const side = plan.mirror ? -1 : 1;
+  const fw = cw * 0.42;
+  const fh = h * 0.3;
+  const fx = cx + side * cw * 0.55 - (side < 0 ? fw : 0);
+  ctx.fillStyle = wealth > 0.6 ? '#d8dde2' : '#e8e2d6';
+  ctx.fillRect(fx, V - fh, fw, fh);
+  ctx.strokeStyle = rgba('#000', 0.2);
+  ctx.strokeRect(fx, V - fh, fw, fh);
+  ctx.fillStyle = PALETTE.accent;
+  for (let i = 0; i < 3; i++) {
+    ctx.fillRect(fx + fw * 0.15 + (i % 2) * fw * 0.4, V - fh * 0.85 + i * fh * 0.16, fw * 0.2, fh * 0.09);
+  }
+
+  // Placards hauts : c'est la variante qui change le plus la silhouette.
+  if (plan.kitchen === 1) {
+    ctx.fillStyle = shade(PALETTE.wood, 0.05);
+    ctx.fillRect(cx - cw / 2, V - h * 0.44, cw * 0.9, h * 0.12);
+    ctx.strokeStyle = rgba('#000', 0.18);
+    ctx.strokeRect(cx - cw / 2, V - h * 0.44, cw * 0.9, h * 0.12);
+    ctx.beginPath();
+    ctx.moveTo(cx - cw * 0.05, V - h * 0.44);
+    ctx.lineTo(cx - cw * 0.05, V - h * 0.32);
+    ctx.stroke();
+  }
+
+  if (messy > 0.45) {
+    ctx.fillStyle = '#e6e0d4';
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.ellipse(cx + cw * 0.08 + i * w * 0.011, V - ch - h * 0.013 - i * h * 0.007,
+        w * 0.015, h * 0.007, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawTable(S) {
+  const { ctx, w, h, U, V, detail, plan } = S;
+  const cx = U(plan.zones.table);
+  const ty = V - h * 0.15;
+  const th = h * 0.012;
+
+  if (plan.table === 1) {
+    // Ronde : un seul pied central.
+    const r = w * 0.075;
+    ctx.fillStyle = PALETTE.wood;
+    ctx.beginPath();
+    ctx.ellipse(cx, ty, r, h * 0.018, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(cx - w * 0.008, ty, w * 0.016, V - ty);
+    ctx.fillStyle = PALETTE.woodDark;
+    ctx.beginPath();
+    ctx.ellipse(cx, V, w * 0.032, h * 0.008, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    const tw = plan.table === 2 ? w * 0.1 : w * 0.16;
+    ctx.fillStyle = PALETTE.wood;
+    ctx.fillRect(cx - tw / 2, ty, tw, th);
+    ctx.fillRect(cx - tw * 0.4, ty + th, w * 0.012, V - ty - th);
+    ctx.fillRect(cx + tw * 0.34, ty + th, w * 0.012, V - ty - th);
+  }
+
+  if (detail < 0.45) return;
+  const chairs = plan.table === 2 ? 1 : 2;
+  for (let i = 0; i < chairs; i++) {
+    const side = i === 0 ? -1 : 1;
+    const chx = cx + side * w * 0.115;
+    ctx.fillStyle = PALETTE.woodDark;
+    ctx.fillRect(chx - w * 0.018, V - h * 0.09, w * 0.036, h * 0.008);
+    ctx.fillRect(chx - side * w * 0.016, V - h * 0.17, w * 0.008, h * 0.088);
+    ctx.fillRect(chx - w * 0.014, V - h * 0.082, w * 0.006, h * 0.082);
+    ctx.fillRect(chx + w * 0.008, V - h * 0.082, w * 0.006, h * 0.082);
+  }
+  ctx.fillStyle = '#f2ece0';
+  ctx.fillRect(cx - w * 0.03, ty - h * 0.012, w * 0.028, h * 0.012);
+  ctx.fillStyle = PALETTE.fabric[3];
+  ctx.beginPath();
+  ctx.ellipse(cx + w * 0.02, ty - h * 0.01, w * 0.013, h * 0.009, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawLiving(S, time) {
+  const { ctx, w, h, U, V, detail, plan, apt } = S;
+  const cx = U(plan.zones.salon);
+  const fab = PALETTE.fabric[apt.id % PALETTE.fabric.length];
+
+  if (detail > 0.4 && plan.rug > 0) {
+    ctx.fillStyle = rgba(PALETTE.fabric[(apt.id + 3) % PALETTE.fabric.length], 0.5);
+    if (plan.rug === 1) {
+      ctx.beginPath();
+      ctx.ellipse(cx, V + h * 0.012, w * 0.16, h * 0.022, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillRect(cx - w * 0.15, V, w * 0.3, h * 0.028);
+    }
+  }
+
+  const sh = h * 0.12;
+  const sy = V - sh;
+  if (plan.sofa === 2) {
+    // Deux fauteuils séparés plutôt qu'un canapé.
+    for (const side of [-1, 1]) {
+      const ax = cx + side * w * 0.075;
+      ctx.fillStyle = fab;
+      roundRect(ctx, ax - w * 0.045, sy, w * 0.09, sh, h * 0.02);
+      ctx.fill();
+      ctx.fillStyle = shade(fab, -0.2);
+      roundRect(ctx, ax - w * 0.045, sy - h * 0.05, w * 0.09, h * 0.07, h * 0.02);
+      ctx.fill();
+    }
+  } else {
+    const sw = plan.sofa === 1 ? w * 0.24 : w * 0.19;
+    ctx.fillStyle = fab;
+    roundRect(ctx, cx - sw / 2, sy, sw, sh, h * 0.02);
+    ctx.fill();
+    ctx.fillStyle = shade(fab, -0.2);
+    roundRect(ctx, cx - sw / 2, sy - h * 0.05, sw, h * 0.07, h * 0.02);
+    ctx.fill();
+    if (plan.sofa === 1) {
+      // Retour d'angle.
+      const side = plan.mirror ? -1 : 1;
+      ctx.fillStyle = fab;
+      roundRect(ctx, cx + side * (sw / 2 - w * 0.05), sy - h * 0.03, w * 0.06, sh + h * 0.03, h * 0.02);
+      ctx.fill();
+    }
+    if (detail > 0.5) {
+      ctx.fillStyle = shade(fab, 0.28);
+      roundRect(ctx, cx - sw * 0.4, sy - h * 0.035, sw * 0.2, h * 0.04, h * 0.012);
+      ctx.fill();
+    }
+  }
+
+  if (plan.tv) {
+    const tvw = w * 0.12;
+    const tvh = h * 0.085;
+    const tvy = V - h * 0.2;
+    ctx.fillStyle = PALETTE.woodDark;
+    ctx.fillRect(cx - tvw * 0.6, V - h * 0.085, tvw * 1.2, h * 0.085);
+    ctx.fillStyle = '#20262e';
+    ctx.fillRect(cx - tvw / 2, tvy, tvw, tvh);
+    ctx.fillStyle = apt.tvOn
+      ? mixHex('#8fd0e8', '#ffffff', 0.2 + (Math.sin(time * 11 + apt.id) * 0.5 + 0.5) * 0.3)
+      : PALETTE.screen;
+    ctx.fillRect(cx - tvw / 2 + 2, tvy + 2, tvw - 4, tvh - 4);
+  }
+
+  if (detail > 0.45) {
+    const side = plan.mirror ? -1 : 1;
+    const lx = cx + side * w * 0.115;
+    ctx.strokeStyle = PALETTE.metal;
+    ctx.lineWidth = Math.max(1.5, w * 0.005);
+    ctx.beginPath();
+    ctx.moveTo(lx, V);
+    ctx.lineTo(lx, V - h * (plan.lampStyle ? 0.24 : 0.19));
+    ctx.stroke();
+    const ly = V - h * (plan.lampStyle ? 0.24 : 0.19);
+    ctx.fillStyle = apt.lightOn ? '#ffd98f' : '#cbbfa8';
+    if (plan.lampStyle) {
+      ctx.beginPath();
+      ctx.moveTo(lx - w * 0.026, ly);
+      ctx.lineTo(lx + w * 0.026, ly);
+      ctx.lineTo(lx + w * 0.016, ly - h * 0.055);
+      ctx.lineTo(lx - w * 0.016, ly - h * 0.055);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.arc(lx, ly, w * 0.022, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawBed(S, occupants) {
+  const { ctx, w, h, U, V, detail, plan } = S;
+  const cx = U(plan.zones.lit);
+  const wide = plan.bed === 0;
+  const bw = wide ? w * 0.18 : w * 0.13;
   const bh = h * 0.075;
-  const by = floorY - bh;
+  const by = V - bh;
+
   ctx.fillStyle = PALETTE.woodDark;
   ctx.fillRect(cx - bw / 2, by, bw, bh);
   ctx.fillStyle = '#e8ded0';
   ctx.fillRect(cx - bw / 2, by - h * 0.03, bw, h * 0.035);
-  ctx.fillStyle = PALETTE.fabric[(style + 1) % PALETTE.fabric.length];
+  ctx.fillStyle = PALETTE.fabric[(plan.bed + S.apt.id) % PALETTE.fabric.length];
   ctx.fillRect(cx - bw * 0.15, by - h * 0.028, bw * 0.65, h * 0.032);
-  // Tête de lit + oreiller.
+
+  const side = plan.mirror ? 1 : -1;
   ctx.fillStyle = PALETTE.wood;
-  ctx.fillRect(cx - bw / 2 - w * 0.008, by - h * 0.11, w * 0.012, h * 0.11);
+  ctx.fillRect(cx + side * (bw / 2) - (side > 0 ? 0 : w * 0.012), by - h * 0.11, w * 0.012, h * 0.11);
   ctx.fillStyle = '#f4ece0';
-  roundRect(ctx, cx - bw * 0.44, by - h * 0.045, bw * 0.26, h * 0.026, 3);
+  roundRect(ctx, cx + side * bw * 0.35 - bw * 0.13, by - h * 0.045, bw * 0.26, h * 0.026, 3);
   ctx.fill();
+
   if (detail > 0.5) {
-    // Table de nuit et réveil, qui n'a jamais servi à personne.
+    const nx = cx - side * bw * 0.62;
     ctx.fillStyle = PALETTE.wood;
-    ctx.fillRect(cx + bw * 0.55, floorY - h * 0.08, w * 0.04, h * 0.08);
+    ctx.fillRect(nx - w * 0.02, V - h * 0.08, w * 0.04, h * 0.08);
     ctx.fillStyle = '#c94f3f';
-    ctx.fillRect(cx + bw * 0.58, floorY - h * 0.095, w * 0.022, h * 0.015);
+    ctx.fillRect(nx - w * 0.011, V - h * 0.095, w * 0.022, h * 0.015);
+  }
+  // Un lit d'enfant en plus quand il y a des enfants et de la place.
+  if (occupants.some((p) => p.age >= 2 && p.age < 12) && plan.bed !== 0 && detail > 0.5) {
+    const kx = cx + (plan.mirror ? -1 : 1) * w * 0.1;
+    ctx.fillStyle = PALETTE.woodDark;
+    ctx.fillRect(kx - w * 0.05, V - h * 0.055, w * 0.1, h * 0.055);
+    ctx.fillStyle = '#e8ded0';
+    ctx.fillRect(kx - w * 0.05, V - h * 0.075, w * 0.1, h * 0.022);
   }
 }
 
-function drawBathroom(ctx, cx, floorY, w, h, detail) {
-  // Cloison.
-  ctx.fillStyle = rgba('#ffffff', 0.13);
-  ctx.fillRect(cx - w * 0.05, floorY - h * 0.5, w * 0.11, h * 0.5);
-  ctx.strokeStyle = rgba('#ffffff', 0.25);
+function drawBathroom(S) {
+  const { ctx, w, h, U, V, detail, plan } = S;
+  const cx = U(plan.zones.bain);
+  ctx.fillStyle = rgba('#ffffff', 0.12);
+  ctx.fillRect(cx - w * 0.045, V - h * 0.5, w * 0.09, h * 0.5);
+  ctx.strokeStyle = rgba('#ffffff', 0.22);
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(cx - w * 0.05, floorY - h * 0.5);
-  ctx.lineTo(cx - w * 0.05, floorY);
+  ctx.moveTo(cx - w * 0.045, V - h * 0.5);
+  ctx.lineTo(cx - w * 0.045, V);
+  ctx.moveTo(cx + w * 0.045, V - h * 0.5);
+  ctx.lineTo(cx + w * 0.045, V);
   ctx.stroke();
-  if (detail > 0.4) {
-    // Douche.
-    ctx.fillStyle = '#dfe6e8';
-    ctx.fillRect(cx - w * 0.035, floorY - h * 0.02, w * 0.07, h * 0.02);
-    ctx.strokeStyle = PALETTE.metal;
-    ctx.lineWidth = Math.max(1.2, w * 0.004);
+  if (detail < 0.4) return;
+  ctx.fillStyle = '#dfe6e8';
+  ctx.fillRect(cx - w * 0.032, V - h * 0.02, w * 0.064, h * 0.02);
+  ctx.strokeStyle = PALETTE.metal;
+  ctx.lineWidth = Math.max(1.2, w * 0.004);
+  ctx.beginPath();
+  ctx.moveTo(cx, V - h * 0.02);
+  ctx.lineTo(cx, V - h * 0.34);
+  ctx.lineTo(cx - w * 0.022, V - h * 0.34);
+  ctx.stroke();
+}
+
+/** Meubles secondaires : c'est eux qui font qu'un logement a un caractère. */
+function drawExtras(S) {
+  const { ctx, w, h, U, V, plan } = S;
+  const spots = [0.16, 0.46, 0.78];
+  plan.extras.forEach((kind, i) => {
+    const cx = U(spots[i % spots.length] + plan.jitter[i]);
+    switch (kind) {
+      case 'bibliotheque': {
+        const bw = w * 0.09;
+        const bh = h * 0.34;
+        ctx.fillStyle = PALETTE.wood;
+        ctx.fillRect(cx - bw / 2, V - bh, bw, bh);
+        ctx.fillStyle = shade(PALETTE.wood, -0.3);
+        for (let r = 1; r < 4; r++) ctx.fillRect(cx - bw / 2, V - bh + (bh / 4) * r, bw, h * 0.006);
+        for (let r = 0; r < 4; r++) {
+          for (let b = 0; b < 5; b++) {
+            ctx.fillStyle = PALETTE.fabric[(r * 5 + b + S.apt.id) % PALETTE.fabric.length];
+            ctx.fillRect(cx - bw * 0.44 + b * bw * 0.18, V - bh + (bh / 4) * r + h * 0.008,
+              bw * 0.14, bh / 4 - h * 0.014);
+          }
+        }
+        break;
+      }
+      case 'penderie': {
+        const pw = w * 0.075;
+        const ph = h * 0.4;
+        ctx.fillStyle = shade(PALETTE.wood, 0.1);
+        ctx.fillRect(cx - pw / 2, V - ph, pw, ph);
+        ctx.strokeStyle = rgba('#000', 0.2);
+        ctx.strokeRect(cx - pw / 2, V - ph, pw, ph);
+        ctx.beginPath();
+        ctx.moveTo(cx, V - ph);
+        ctx.lineTo(cx, V);
+        ctx.stroke();
+        break;
+      }
+      case 'bureau': {
+        ctx.fillStyle = PALETTE.wood;
+        ctx.fillRect(cx - w * 0.055, V - h * 0.14, w * 0.11, h * 0.012);
+        ctx.fillRect(cx - w * 0.05, V - h * 0.128, w * 0.01, h * 0.128);
+        ctx.fillRect(cx + w * 0.04, V - h * 0.128, w * 0.01, h * 0.128);
+        ctx.fillStyle = '#20262e';
+        ctx.fillRect(cx - w * 0.022, V - h * 0.2, w * 0.045, h * 0.055);
+        break;
+      }
+      case 'commode': {
+        ctx.fillStyle = shade(PALETTE.wood, -0.05);
+        ctx.fillRect(cx - w * 0.05, V - h * 0.13, w * 0.1, h * 0.13);
+        ctx.strokeStyle = rgba('#000', 0.2);
+        for (let r = 1; r < 3; r++) {
+          ctx.beginPath();
+          ctx.moveTo(cx - w * 0.05, V - h * 0.13 + (h * 0.13 / 3) * r);
+          ctx.lineTo(cx + w * 0.05, V - h * 0.13 + (h * 0.13 / 3) * r);
+          ctx.stroke();
+        }
+        break;
+      }
+      default: { // buffet
+        ctx.fillStyle = PALETTE.woodDark;
+        ctx.fillRect(cx - w * 0.06, V - h * 0.1, w * 0.12, h * 0.1);
+        ctx.fillStyle = shade(PALETTE.wood, 0.2);
+        ctx.fillRect(cx - w * 0.06, V - h * 0.11, w * 0.12, h * 0.012);
+        break;
+      }
+    }
+  });
+}
+
+function drawWallDecor(S, occupants) {
+  const { ctx, x, y, w, h, plan, apt } = S;
+  const kind = plan.wallDecor;
+  if (kind === 2) {
+    // Horloge.
+    const cx = x + w * 0.5;
+    const cy = y + h * 0.16;
     ctx.beginPath();
-    ctx.moveTo(cx, floorY - h * 0.02);
-    ctx.lineTo(cx, floorY - h * 0.36);
-    ctx.lineTo(cx - w * 0.025, floorY - h * 0.36);
+    ctx.arc(cx, cy, w * 0.022, 0, Math.PI * 2);
+    ctx.fillStyle = '#f2ece0';
+    ctx.fill();
+    ctx.strokeStyle = PALETTE.woodDark;
+    ctx.lineWidth = 2;
     ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx, cy - w * 0.014);
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + w * 0.01, cy);
+    ctx.stroke();
+    return;
   }
+  if (kind === 3) {
+    // Miroir.
+    const cx = x + w * 0.3;
+    ctx.fillStyle = rgba('#c9d6da', 0.5);
+    roundRect(ctx, cx, y + h * 0.14, w * 0.05, h * 0.16, w * 0.02);
+    ctx.fill();
+    ctx.strokeStyle = PALETTE.wood;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    return;
+  }
+  const n = Math.min(4, 1 + occupants.length);
+  for (let i = 0; i < n; i++) {
+    const fx = x + w * (0.24 + i * 0.14 + plan.jitter[i]);
+    const fy = y + h * (0.17 + (i % 2) * 0.08);
+    const fw = w * 0.05;
+    const fh = h * 0.085;
+    if (kind === 1) {
+      // Affiches : pas de cadre, couleurs franches.
+      ctx.fillStyle = pickStable(PALETTE.fabric, `affiche${apt.id}${i}`);
+      ctx.fillRect(fx, fy, fw, fh);
+      ctx.fillStyle = rgba('#000', 0.15);
+      ctx.fillRect(fx, fy + fh * 0.7, fw, fh * 0.1);
+      continue;
+    }
+    ctx.fillStyle = PALETTE.wood;
+    ctx.fillRect(fx, fy, fw, fh);
+    ctx.fillStyle = pickStable(['#c9b8a0', '#a8bcc9', '#c9a8a8', '#b6c9a8'], `cadre${apt.id}${i}`);
+    ctx.fillRect(fx + fw * 0.12, fy + fh * 0.12, fw * 0.76, fh * 0.76);
+    if (occupants[i]) {
+      const look = appearance(occupants[i]);
+      ctx.fillStyle = look.hair;
+      ctx.beginPath();
+      ctx.arc(fx + fw / 2, fy + fh * 0.4, fw * 0.17, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = look.top;
+      ctx.fillRect(fx + fw * 0.28, fy + fh * 0.52, fw * 0.44, fh * 0.3);
+    }
+  }
+}
+
+/** Les objets des habitants : on doit deviner qui vit là sans lire la fiche. */
+function drawProps(S, props) {
+  const { ctx, w, h, U, V, plan } = S;
+  const spot = (i) => U(0.2 + ((i * 0.23 + plan.zones.salon) % 0.66) + plan.jitter[i % 8]);
+  props.forEach((kind, i) => {
+    const cx = spot(i);
+    switch (kind) {
+      case 'guitare':
+        ctx.fillStyle = '#b3763c';
+        ctx.beginPath();
+        ctx.ellipse(cx, V - h * 0.045, w * 0.021, h * 0.048, 0.18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = PALETTE.woodDark;
+        ctx.fillRect(cx + w * 0.006, V - h * 0.155, w * 0.008, h * 0.1);
+        break;
+      case 'chevalet':
+        ctx.strokeStyle = PALETTE.wood;
+        ctx.lineWidth = Math.max(1.5, w * 0.005);
+        ctx.beginPath();
+        ctx.moveTo(cx - w * 0.025, V);
+        ctx.lineTo(cx, V - h * 0.2);
+        ctx.lineTo(cx + w * 0.025, V);
+        ctx.stroke();
+        ctx.fillStyle = '#f2ece0';
+        ctx.fillRect(cx - w * 0.03, V - h * 0.19, w * 0.06, h * 0.07);
+        break;
+      case 'etabli':
+        ctx.fillStyle = shade(PALETTE.wood, -0.15);
+        ctx.fillRect(cx - w * 0.05, V - h * 0.11, w * 0.1, h * 0.014);
+        ctx.fillRect(cx - w * 0.045, V - h * 0.096, w * 0.008, h * 0.096);
+        ctx.fillRect(cx + w * 0.037, V - h * 0.096, w * 0.008, h * 0.096);
+        ctx.fillStyle = '#c0392b';
+        ctx.fillRect(cx - w * 0.02, V - h * 0.14, w * 0.04, h * 0.03);
+        break;
+      case 'jouets':
+        for (let k = 0; k < 4; k++) {
+          ctx.fillStyle = ['#c0392b', '#2f80c0', '#e0a83f', '#4a9c5a'][k];
+          ctx.beginPath();
+          ctx.arc(cx + (k - 1.5) * w * 0.018, V - h * 0.008, w * 0.008, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      case 'berceau':
+        ctx.fillStyle = '#e8ded0';
+        roundRect(ctx, cx - w * 0.03, V - h * 0.06, w * 0.06, h * 0.055, w * 0.01);
+        ctx.fill();
+        ctx.strokeStyle = PALETTE.wood;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        break;
+      case 'bouteilles':
+        for (let k = 0; k < 3; k++) {
+          ctx.fillStyle = k % 2 ? '#4a6b3f' : '#6b5233';
+          ctx.fillRect(cx + k * w * 0.012, V - h * 0.035, w * 0.007, h * 0.035);
+        }
+        break;
+      case 'livres':
+        ctx.fillStyle = PALETTE.fabric[1];
+        for (let k = 0; k < 3; k++) {
+          ctx.fillRect(cx, V - h * 0.012 * (k + 1), w * 0.03, h * 0.011);
+          ctx.fillStyle = PALETTE.fabric[(k + 3) % PALETTE.fabric.length];
+        }
+        break;
+      case 'cartons':
+        ctx.fillStyle = '#b3915f';
+        ctx.fillRect(cx - w * 0.025, V - h * 0.05, w * 0.05, h * 0.05);
+        ctx.strokeStyle = rgba('#000', 0.2);
+        ctx.strokeRect(cx - w * 0.025, V - h * 0.05, w * 0.05, h * 0.05);
+        break;
+      case 'casseroles':
+        ctx.fillStyle = PALETTE.metal;
+        for (let k = 0; k < 2; k++) {
+          ctx.beginPath();
+          ctx.arc(cx + k * w * 0.025, S.y + h * 0.3, w * 0.014, 0, Math.PI);
+          ctx.fill();
+        }
+        break;
+      case 'napperon':
+        ctx.fillStyle = 'rgba(250,245,235,0.85)';
+        ctx.beginPath();
+        ctx.ellipse(cx, V - h * 0.152, w * 0.026, h * 0.008, 0, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      case 'courrier':
+        ctx.fillStyle = '#f2ece0';
+        for (let k = 0; k < 4; k++) {
+          ctx.fillRect(cx - w * 0.02 + k * 2, V - h * 0.006 - k * 2, w * 0.035, h * 0.006);
+        }
+        break;
+      case 'tableau':
+        ctx.fillStyle = '#3f5a4a';
+        ctx.fillRect(cx - w * 0.035, S.y + h * 0.2, w * 0.07, h * 0.09);
+        ctx.strokeStyle = PALETTE.wood;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cx - w * 0.035, S.y + h * 0.2, w * 0.07, h * 0.09);
+        break;
+      default: // ordinateur
+        ctx.fillStyle = '#2a3038';
+        ctx.fillRect(cx - w * 0.018, V - h * 0.19, w * 0.036, h * 0.026);
+        break;
+    }
+  });
 }
 
 function drawPlant(ctx, cx, floorY, size) {
@@ -8704,64 +9172,94 @@ function drawPlant(ctx, cx, floorY, size) {
   }
 }
 
-function drawFrames(ctx, x, y, w, h, apt, occupants, detail) {
-  // Des cadres au mur : plus il y a d'habitants, plus il y a de photos.
-  const n = Math.min(4, 1 + occupants.length);
+function drawClutter(S, level) {
+  const { ctx, x, w, h, V, apt } = S;
+  const n = Math.round(level * 9);
   for (let i = 0; i < n; i++) {
-    const fx = x + w * (0.28 + i * 0.13);
-    const fy = y + h * (0.2 + (i % 2) * 0.08);
-    const fw = w * 0.055;
-    const fh = h * 0.09;
-    ctx.fillStyle = PALETTE.wood;
-    ctx.fillRect(fx, fy, fw, fh);
-    ctx.fillStyle = pickStable(['#c9b8a0', '#a8bcc9', '#c9a8a8', '#b6c9a8'], `cadre${apt.id}${i}`);
-    ctx.fillRect(fx + fw * 0.12, fy + fh * 0.12, fw * 0.76, fh * 0.76);
-    if (detail > 0.7 && occupants[i]) {
-      // Une silhouette dans le cadre : c'est déjà une photo de famille.
-      const look = appearance(occupants[i]);
-      ctx.fillStyle = look.hair;
+    const u = ((apt.id * 37 + i * 91) % 100) / 100;
+    const cx = x + w * (0.1 + u * 0.8);
+    const kind = (apt.id + i) % 4;
+    ctx.fillStyle = ['#c9b8a0', '#8a7f6f', '#b5563f', '#5b7c98'][kind];
+    if (kind === 0) ctx.fillRect(cx, V - h * 0.012, w * 0.022, h * 0.012);
+    else if (kind === 1) {
       ctx.beginPath();
-      ctx.arc(fx + fw / 2, fy + fh * 0.4, fw * 0.18, 0, Math.PI * 2);
+      ctx.ellipse(cx, V + h * 0.004, w * 0.014, h * 0.007, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = look.top;
-      ctx.fillRect(fx + fw * 0.28, fy + fh * 0.52, fw * 0.44, fh * 0.3);
+    } else if (kind === 2) ctx.fillRect(cx, V - h * 0.02, w * 0.01, h * 0.02);
+    else {
+      roundRect(ctx, cx, V - h * 0.016, w * 0.026, h * 0.016, 2);
+      ctx.fill();
     }
   }
 }
 
-function drawClutter(ctx, x, floorY, w, h, level, seed) {
-  const n = Math.round(level * 9);
-  for (let i = 0; i < n; i++) {
-    const u = ((seed * 37 + i * 91) % 100) / 100;
-    const cx = x + w * (0.1 + u * 0.8);
-    const kind = (seed + i) % 4;
-    ctx.fillStyle = ['#c9b8a0', '#8a7f6f', '#b5563f', '#5b7c98'][kind];
-    if (kind === 0) {
-      ctx.fillRect(cx, floorY - h * 0.012, w * 0.022, h * 0.012);
-    } else if (kind === 1) {
-      ctx.beginPath();
-      ctx.ellipse(cx, floorY + h * 0.004, w * 0.014, h * 0.007, 0, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (kind === 2) {
-      ctx.fillRect(cx, floorY - h * 0.02, w * 0.01, h * 0.02);
-    } else {
-      roundRect(ctx, cx, floorY - h * 0.016, w * 0.026, h * 0.016, 2);
-      ctx.fill();
+// --- Lumière et habitants ---------------------------------------------------
+
+function drawLight(S, world, apt, time) {
+  const { ctx, x, y, w, h, U } = S;
+  const amb = ambientLight(world.clock.dayFraction);
+  if (amb < 0.75) {
+    ctx.fillStyle = rgba('#0b1020', (1 - amb) * (apt.lightOn ? 0.35 : 0.72));
+    ctx.fillRect(x, y, w, h);
+    if (apt.lightOn) {
+      const g = ctx.createRadialGradient(U(0.5), y + h * 0.3, 0, U(0.5), y + h * 0.3, w * 0.62);
+      g.addColorStop(0, 'rgba(255,205,130,0.34)');
+      g.addColorStop(1, 'rgba(255,190,120,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y, w, h);
+    }
+  }
+  if (apt.tvOn) {
+    const cx = U(S.plan.zones.salon);
+    const flick = 0.16 + Math.sin(time * 9 + apt.id) * 0.06 + Math.sin(time * 23) * 0.03;
+    const g = ctx.createRadialGradient(cx, y + h * 0.55, 0, cx, y + h * 0.55, w * 0.45);
+    g.addColorStop(0, `rgba(150,205,235,${Math.max(0, flick)})`);
+    g.addColorStop(1, 'rgba(150,205,235,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, w, h);
+  }
+}
+
+function drawPeople(S, occupants, time, dt, detail) {
+  const { ctx, w, h, U, V } = S;
+  const charH = h * 0.54;
+  const sorted = [...occupants].sort((a, b) => (b.zRank ?? 0) - (a.zRank ?? 0) || a.pos.x - b.pos.x);
+  for (const p of sorted) {
+    const depth = p.zRank ?? 0;
+    const px = U(p.pos.x);
+    let py = V + h * 0.02 - depth * h * 0.035;
+    let pose;
+    if (p.action?.id === 'dormir' || p.action?.id === 'soigner') {
+      py = V - h * 0.055;
+      pose = 'couche';
+    } else if (p.age < 2) {
+      pose = 'bebe';
+      py = V;
+    }
+    drawCharacter(ctx, p, px, py, charH * (1 - depth * 0.07), { time, dt, pose, facing: p.facing });
+  }
+  if (detail > 0.55) {
+    for (const p of sorted) {
+      if (!p.speech) continue;
+      ctx.globalAlpha = Math.min(1, p.speech.ttl / 8);
+      drawSpeech(ctx, p.speech.text, U(p.pos.x), V - charH * 0.98,
+        Math.min(w * 0.42, 190), Math.min(1.35, w / 420));
+      ctx.globalAlpha = 1;
     }
   }
 }
 
 // --- Lecture de l'état ------------------------------------------------------
 
-function clutterLevel(world, apt, occupants) {
+function clutterLevel(apt, occupants) {
   if (!occupants.length) return 0;
   const confort = occupants.reduce((s, p) => s + p.needs.get('confort'), 0) / occupants.length;
   const messyTrait = occupants.some((p) => p.personality.has('desordonne')) ? 0.25 : 0;
   const kids = occupants.filter((p) => p.age < 12).length * 0.12;
-  return Math.max(0, Math.min(1, (100 - confort) / 100 + messyTrait + kids - (1 - apt.condition) * 0.1));
+  return Math.max(0, Math.min(1, (100 - confort) / 100 + messyTrait + kids));
 }
 
-function wealthLevel(world, occupants) {
+function wealthLevel(occupants) {
   if (!occupants.length) return 0.3;
   const money = occupants.reduce((s, p) => s + p.money, 0) / occupants.length;
   return Math.max(0, Math.min(1, money / 8000));
@@ -9054,67 +9552,107 @@ function drawSilhouettes(ctx, world, r, occupants, time) {
   ctx.beginPath();
   ctx.rect(r.x, r.y, r.w, r.h);
   ctx.clip();
-  const floorY = r.y + r.h * 0.98;
+  const floorY = r.y + r.h * 1.02;
   const shown = occupants.slice(0, 3);
-  for (const p of shown) {
-    const sway = Math.sin(time * 0.5 + p.id * 1.7) * 0.5 + 0.5;
-    const px = r.x + r.w * (0.2 + sway * 0.6);
-    const h = r.h * (p.age < 12 ? 0.62 : 0.85);
-    ctx.globalAlpha = 0.72;
+  shown.forEach((p, i) => {
+    // Les habitants se répartissent dans la pièce au lieu de se planter
+    // tous au milieu de la vitre, face à la rue.
+    const lane = shown.length > 1 ? (i + 0.5) / shown.length : 0.5;
+    const sway = Math.sin(time * 0.35 + p.id * 1.7) * 0.12;
+    const px = r.x + r.w * Math.max(0.14, Math.min(0.86, lane + sway));
+    const h = r.h * (p.age < 12 ? 0.5 : 0.66);
     drawTinySilhouette(ctx, p, px, floorY, h, time);
-  }
+  });
   ctx.restore();
 }
 
 /**
- * Silhouette de fenêtre : trop petite pour la marionnette complète, donc
- * dessinée à part, en formes simples mais reconnaissables.
+ * Silhouette de fenêtre.
+ *
+ * Ce sont des gens à contre-jour derrière un rideau, pas des ombres.
+ * Trois choses les rendaient inquiétantes : le noir presque pur, la
+ * posture figée de face, et la taille — ils remplissaient la vitre. On
+ * les dessine donc plus petits, en brun chaud translucide, de trois
+ * quarts, et occupés à quelque chose.
  */
 function drawTinySilhouette(ctx, person, x, y, h, time) {
-  const look = appearance(person);
-  const t = time + person.id;
-  const sleeping = person.action?.id === 'dormir';
-  ctx.fillStyle = 'rgba(30,20,15,0.82)';
+  const t = time + person.id * 1.3;
+  const act = person.action?.id;
+  const side = person.id % 2 ? 1 : -1;
 
-  if (sleeping) {
-    roundRect(ctx, x - h * 0.35, y - h * 0.16, h * 0.7, h * 0.16, h * 0.07);
+  // Brun chaud, jamais noir : la lampe est derrière eux, elle traverse.
+  const body = 'rgba(96,58,36,0.62)';
+  const dark = 'rgba(74,42,26,0.7)';
+  ctx.fillStyle = body;
+  ctx.strokeStyle = body;
+
+  if (act === 'dormir' || act === 'soigner') {
+    // Allongé, tout en bas : à peine une bosse sous une couverture.
+    ctx.globalAlpha = 0.5;
+    roundRect(ctx, x - h * 0.42, y - h * 0.2, h * 0.84, h * 0.2, h * 0.09);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(x - h * 0.3, y - h * 0.2, h * 0.1, 0, Math.PI * 2);
+    ctx.arc(x - h * 0.34, y - h * 0.26, h * 0.1, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 1;
     return;
   }
 
-  const bob = Math.abs(Math.sin(t * 2)) * h * 0.02;
-  const headR = h * 0.17;
-  // Corps
+  const sitting = act === 'tv' || act === 'lire' || act === 'jeu'
+    || act === 'manger' || act === 'ruminer' || act === 'boire'
+    || act === 'teletravail' || act === 'chercher_emploi';
+  const busy = act === 'cuisiner' || act === 'menage' || act === 'bricoler'
+    || (person.action?.def?.noise ?? 0) > 0.3;
+  const dancing = act === 'musique' || act === 'fete' || act === 'invite';
+
+  const scale = sitting ? 0.72 : 1;
+  const bob = dancing ? Math.abs(Math.sin(t * 4)) * h * 0.05
+    : busy ? Math.abs(Math.sin(t * 3)) * h * 0.015
+      : Math.sin(t * 1.2) * h * 0.008;
+  const hipY = y - h * 0.02;
+  const shY = hipY - h * 0.42 * scale - bob;
+  const headR = h * 0.135;
+  const headY = shY - headR * 1.15;
+
+  // Buste : des épaules arrondies, pas un trapèze coupé au couteau.
   ctx.beginPath();
-  ctx.moveTo(x - h * 0.13, y);
-  ctx.lineTo(x - h * 0.11, y - h * 0.55 - bob);
-  ctx.lineTo(x + h * 0.11, y - h * 0.55 - bob);
-  ctx.lineTo(x + h * 0.13, y);
+  ctx.moveTo(x - h * 0.13, hipY);
+  ctx.quadraticCurveTo(x - h * 0.15, shY + h * 0.04, x - h * 0.1, shY);
+  ctx.quadraticCurveTo(x, shY - h * 0.03, x + h * 0.1, shY);
+  ctx.quadraticCurveTo(x + h * 0.15, shY + h * 0.04, x + h * 0.13, hipY);
   ctx.closePath();
   ctx.fill();
-  // Bras qui bougent selon l'action.
-  const busy = person.action?.def?.noise > 0.3 || person.action?.id === 'cuisiner';
-  const swing = busy ? Math.sin(t * 5) * h * 0.16 : Math.sin(t * 1.4) * h * 0.05;
-  ctx.lineWidth = h * 0.075;
+
+  if (sitting) {
+    // Les cuisses partent sur le côté : on voit tout de suite que c'est assis.
+    ctx.beginPath();
+    roundRect(ctx, x + (side > 0 ? 0 : -h * 0.3), hipY - h * 0.05, h * 0.3, h * 0.09, h * 0.04);
+    ctx.fill();
+  }
+
+  // Bras.
+  const swing = dancing ? Math.sin(t * 4) * h * 0.22
+    : busy ? Math.sin(t * 4.5) * h * 0.14
+      : Math.sin(t * 1.1) * h * 0.03;
+  ctx.lineWidth = h * 0.065;
   ctx.lineCap = 'round';
-  ctx.strokeStyle = 'rgba(30,20,15,0.82)';
   ctx.beginPath();
-  ctx.moveTo(x - h * 0.11, y - h * 0.5 - bob);
-  ctx.lineTo(x - h * 0.2, y - h * 0.28 - bob + swing);
-  ctx.moveTo(x + h * 0.11, y - h * 0.5 - bob);
-  ctx.lineTo(x + h * 0.2, y - h * 0.28 - bob - swing);
+  ctx.moveTo(x - h * 0.1, shY + h * 0.03);
+  ctx.lineTo(x - h * 0.17, shY + h * 0.22 + swing);
+  ctx.moveTo(x + h * 0.1, shY + h * 0.03);
+  ctx.lineTo(x + h * 0.17, shY + h * 0.22 - swing);
   ctx.stroke();
-  // Tête
+
+  // Tête de trois quarts : décalée et penchée, jamais plein axe vers la rue.
+  const turn = Math.sin(t * 0.5) * h * 0.03 + side * h * 0.02;
   ctx.beginPath();
-  ctx.arc(x, y - h * 0.55 - headR * 0.8 - bob, headR, 0, Math.PI * 2);
+  ctx.ellipse(x + turn, headY, headR * 0.92, headR, side * 0.12, 0, Math.PI * 2);
   ctx.fill();
-  // Une mèche de cheveux, pour ne pas avoir que des boules noires.
-  ctx.fillStyle = 'rgba(20,14,10,0.9)';
+  // Une nuque plus dense : ça suffit à donner une direction au regard.
+  ctx.fillStyle = dark;
   ctx.beginPath();
-  ctx.arc(x, y - h * 0.55 - headR * 1.05 - bob, headR * 0.92, Math.PI, Math.PI * 2);
+  ctx.ellipse(x + turn - side * headR * 0.25, headY - headR * 0.2,
+    headR * 0.75, headR * 0.7, side * 0.2, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -10274,9 +10812,10 @@ const FILTERS = {
 };
 
 class ChronicleView {
-  constructor(world, { onFocus }) {
+  constructor(world, { onFocus, onExpand }) {
     this.world = world;
     this.onFocus = onFocus;
+    this.onExpand = onExpand;
     this.filter = 'tous';
     this.max = 90;
     this.root = document.getElementById('chronicle');
@@ -10336,6 +10875,7 @@ class ChronicleView {
         return;
       }
       li.appendChild(buildCauses(beat));
+      this.onExpand?.(beat);
       if (beat.apartment !== null && this.onFocus) this.onFocus(beat);
     });
 
@@ -10646,6 +11186,185 @@ __x.InterventionBar = InterventionBar;
 return __x;
 })();
 
+/* src/ui/guide.js */
+__m["src/ui/guide.js"] = (function () {
+const __x = {};
+// Le mode d'emploi.
+//
+// Behind ne ressemble à rien de familier : on n'y dirige personne, on n'y
+// perd pas, et le bouton le plus important est une fenêtre. Sans un mot
+// d'explication, on reste devant une façade sans savoir quoi en faire.
+//
+// Deux choses ici : une page « Comment jouer » consultable à tout moment,
+// et quatre conseils qui apparaissent un par un à la première partie, dans
+// l'ordre où on en a besoin — chacun disparaît dès qu'on a fait le geste.
+
+const STORAGE = 'behind.guide.v1';
+
+/** Les quatre gestes qui suffisent à comprendre le jeu. */
+const STEPS = [
+  {
+    id: 'entrer',
+    texte: 'Choisissez une fenêtre et touchez-la. Le mur disparaît, et vous voyez vivre les gens qui habitent là.',
+  },
+  {
+    id: 'habitant',
+    texte: 'Touchez un nom dans la fiche : vous verrez son caractère, ce qu\'il cherche, ses relations et ce qu\'il n\'oublie pas.',
+  },
+  {
+    id: 'pourquoi',
+    texte: 'Dans la chronique, chaque ligne s\'ouvre d\'une pression. Elle vous dit pourquoi c\'est arrivé — rien n\'est laissé au hasard.',
+  },
+  {
+    id: 'agir',
+    texte: 'Les losanges ◆ sont votre influence. Elle se recharge toute seule. Tentez un geste : on peut très bien vous dire non.',
+  },
+];
+
+const SECTIONS = [
+  {
+    titre: 'Vous n\'êtes personne',
+    corps: `Il n'y a pas de personnage à diriger. Vous observez un immeuble où
+    tout le monde décide seul, en fonction de son caractère, de ses besoins et
+    de ses souvenirs. Les quatre-vingts appartements vivent en même temps,
+    y compris ceux que vous ne regardez pas.`,
+  },
+  {
+    titre: 'Regarder',
+    corps: `Touchez une fenêtre pour entrer, « ‹ La façade » pour ressortir.
+    Dans la fiche à droite, touchez un nom pour tout savoir d'un habitant.
+    Les fenêtres allumées sont celles où il se passe quelque chose.`,
+  },
+  {
+    titre: 'Comprendre',
+    corps: `La chronique en bas note ce qui arrive. Chaque ligne s'ouvre et
+    montre sa chaîne de causes : le trait de caractère, le souvenir ou la
+    dispute qui a mené là. Si une histoire vous surprend, ouvrez-la.`,
+  },
+  {
+    titre: 'Agir un peu',
+    corps: `Vous ne commandez à personne, mais vous pouvez poser quelque chose
+    dans une vie : un cadeau, une lettre, une occasion. Chaque geste coûte de
+    l'influence ◆, qui se recharge avec le temps. L'habitant décide ensuite.
+    Un orgueilleux refuse l'argent, un méfiant se retourne contre son voisin,
+    et une fête réussie peut coûter une amitié à l'étage au-dessus.`,
+  },
+  {
+    titre: 'Le but',
+    corps: `Faire monter le bonheur de l'immeuble, en haut de l'écran. Il
+    dépend de la famille, de l'amour, de l'amitié, du travail, de l'argent,
+    de la santé, de la sécurité, du logement, de la solitude et du stress.
+    Il n'y a pas de fin : il y a des vies qui durent.`,
+  },
+  {
+    titre: 'Le temps',
+    corps: `Les boutons ▶ règlent la vitesse ; ❚❚ met en pause. Les journées
+    sont entières, mais une année ne dure que vingt-quatre jours de
+    simulation — sinon personne ne vieillirait jamais et il n'y aurait pas
+    d'histoires sur trois générations.`,
+  },
+  {
+    titre: 'Les secrets',
+    corps: `Il y en a dix. La plupart arrivent tout seuls si l'immeuble va
+    dans la bonne direction. Un seul se mérite : quelque part, une fenêtre ne
+    s'allume jamais, et les habitants en parlent parfois. On ne vous dira pas
+    comment y entrer.`,
+  },
+];
+
+class Guide {
+  constructor({ onNeedsLayout } = {}) {
+    this.onNeedsLayout = onNeedsLayout;
+    this.done = new Set(this.load());
+    this.panel = document.getElementById('guide-panel');
+    this.body = document.getElementById('guide-body');
+    this.coach = document.getElementById('coach');
+    this.coachText = document.getElementById('coach-text');
+
+    document.getElementById('btn-aide').addEventListener('click', () => this.openPanel());
+    document.getElementById('guide-close').addEventListener('click', () => this.closePanel());
+    document.getElementById('coach-close').addEventListener('click', () => {
+      // Passer un conseil, c'est passer tous les conseils : quelqu'un qui
+      // referme la bulle n'a pas envie qu'on lui en propose une autre.
+      for (const s of STEPS) this.done.add(s.id);
+      this.save();
+      this.refresh();
+    });
+
+    this.buildPanel();
+    this.refresh();
+  }
+
+  load() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE) ?? '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  save() {
+    try {
+      localStorage.setItem(STORAGE, JSON.stringify([...this.done]));
+    } catch {
+      // Navigation privée ou file:// verrouillé : les conseils réapparaîtront
+      // à la prochaine partie, ce n'est pas grave.
+    }
+  }
+
+  /** Marque un geste comme acquis et passe au conseil suivant. */
+  accomplir(id) {
+    if (this.done.has(id)) return;
+    this.done.add(id);
+    this.save();
+    this.refresh();
+  }
+
+  /** Le premier conseil pas encore acquis, ou rien. */
+  get courant() {
+    return STEPS.find((s) => !this.done.has(s.id)) ?? null;
+  }
+
+  refresh() {
+    const step = this.courant;
+    if (!step) {
+      this.coach.classList.add('hidden');
+    } else {
+      this.coachText.textContent = step.texte;
+      this.coach.classList.remove('hidden');
+    }
+    this.onNeedsLayout?.();
+  }
+
+  buildPanel() {
+    const frag = document.createDocumentFragment();
+    for (const s of SECTIONS) {
+      const h = document.createElement('h3');
+      h.textContent = s.titre;
+      const p = document.createElement('p');
+      p.textContent = s.corps.replace(/\s+/g, ' ').trim();
+      frag.append(h, p);
+    }
+    this.body.replaceChildren(frag);
+  }
+
+  openPanel() {
+    this.panel.classList.remove('hidden');
+  }
+
+  closePanel() {
+    this.panel.classList.add('hidden');
+  }
+
+  get panelOuvert() {
+    return !this.panel.classList.contains('hidden');
+  }
+}
+__x.STEPS = STEPS;
+__x.Guide = Guide;
+return __x;
+})();
+
 /* src/main.js */
 __m["src/main.js"] = (function () {
 const __x = {};
@@ -10665,6 +11384,7 @@ const { Hud, toast } = __m["src/ui/hud.js"];
 const { ChronicleView } = __m["src/ui/chronicle.js"];
 const { Inspector } = __m["src/ui/inspector.js"];
 const { InterventionBar } = __m["src/ui/interventions.js"];
+const { Guide } = __m["src/ui/guide.js"];
 const { SECRET_LIST } = __m["src/sim/secrets.js"];
 
 // Une seconde réelle = dix minutes de simulation à vitesse normale.
@@ -10682,6 +11402,7 @@ let hud = null;
 let chronicle = null;
 let inspector = null;
 let interventions = null;
+let guide = null;
 
 let speed = 1;
 let accumulator = 0;
@@ -10710,13 +11431,18 @@ function start() {
   layout = new FacadeLayout(world);
 
   hud = new Hud(world, { onSpeed: setSpeed });
-  chronicle = new ChronicleView(world, { onFocus: focusBeat });
+  chronicle = new ChronicleView(world, {
+    onFocus: focusBeat,
+    onExpand: () => guide?.accomplir('pourquoi'),
+  });
   inspector = new Inspector(world, { onSelectPerson, onClose: () => leave() });
   interventions = new InterventionBar(world);
+  guide = new Guide({ onNeedsLayout: () => updateChrome() });
 
   hud.show();
   chronicle.show();
 
+  world.bus.on('intervention', () => guide?.accomplir('agir'));
   world.bus.on('secret', ({ title }) => toast(`Secret découvert — ${title}`, 'secret'));
   world.bus.on('hidden-unlocked', () => {
     toast('Quelque chose a changé. La fenêtre éteinte n\'est plus tout à fait éteinte.', 'secret');
@@ -10813,6 +11539,7 @@ function reservedSpace() {
     if (visible(sheet)) bottom = Math.max(bottom, layout.height - sheet.getBoundingClientRect().top + 8);
     else if (visible(chron)) bottom = Math.max(bottom, layout.height - chron.getBoundingClientRect().top + 8);
     else bottom = 80; // place du bouton « la façade »
+    if (guide?.courant) bottom = Math.max(bottom, 120);
   } else if (narrow) {
     if (visible(sheet)) right = Math.max(right, layout.width - sheet.getBoundingClientRect().left + 10);
     else if (visible(chron)) right = Math.max(right, layout.width - chron.getBoundingClientRect().left + 10);
@@ -10820,6 +11547,7 @@ function reservedSpace() {
   } else {
     if (visible(sheet)) right = Math.max(right, layout.width - sheet.getBoundingClientRect().left + 12);
     if (visible(chron)) bottom = Math.max(bottom, 150);
+    if (guide?.courant) bottom = Math.max(bottom, 90);
   }
   // On ne laisse jamais l'interface avaler plus des deux tiers de l'écran.
   bottom = Math.min(bottom, layout.height * 0.66);
@@ -10878,6 +11606,10 @@ function installInput() {
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      if (guide?.panelOuvert) {
+        guide.closePanel();
+        return;
+      }
       if (!document.getElementById('secrets-panel').classList.contains('hidden')) {
         toggleSecrets(false);
         return;
@@ -10926,6 +11658,7 @@ function enterApartment(apt) {
 
   camera.enter(apt);
   inspector.open(apt);
+  guide?.accomplir('entrer');
   if (!apt.hidden) interventions.setTarget(null);
   // Sur mobile, la fiche et la chronique ne cohabitent pas.
   if (narrow) document.getElementById('chronicle').classList.add('folded');
@@ -10941,6 +11674,7 @@ function leave() {
 }
 
 function onSelectPerson(person) {
+  if (person) guide?.accomplir('habitant');
   if (!person) {
     if (camera.zoomed && camera.apartment && !camera.apartment.hidden) {
       interventions.setTarget(null);

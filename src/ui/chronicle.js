@@ -14,9 +14,10 @@ const FILTERS = {
 };
 
 export class ChronicleView {
-  constructor(world, { onFocus }) {
+  constructor(world, { onFocus, onExpand }) {
     this.world = world;
     this.onFocus = onFocus;
+    this.onExpand = onExpand;
     this.filter = 'tous';
     this.max = 90;
     this.root = document.getElementById('chronicle');
@@ -76,6 +77,7 @@ export class ChronicleView {
         return;
       }
       li.appendChild(buildCauses(beat));
+      this.onExpand?.(beat);
       if (beat.apartment !== null && this.onFocus) this.onFocus(beat);
     });
 

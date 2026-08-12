@@ -440,6 +440,53 @@ body.finale #interventions,
 body.finale #toast { display: none !important; }
 body.finale { background: #000; }
 
+/* ------------------------------------------------------------------ guide */
+
+.guide-card { max-width: 560px; max-height: 86dvh; overflow-y: auto; }
+#guide-body h3 {
+  margin: 16px 0 4px;
+  font-size: 15px;
+  color: var(--accent);
+  letter-spacing: 0.01em;
+}
+#guide-body h3:first-child { margin-top: 4px; }
+#guide-body p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+#guide-close { margin-top: 20px; }
+
+/* La bulle de conseil : présente, jamais bloquante. */
+.coach {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 24;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(520px, 82vw);
+  padding: 11px 12px 11px 16px;
+  background: rgba(40, 28, 20, 0.94);
+  color: #f7efe2;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  font-size: 13.5px;
+  line-height: 1.45;
+  animation: rise 0.35s ease;
+}
+.coach button {
+  flex: 0 0 auto;
+  font-size: 20px;
+  line-height: 1;
+  color: rgba(247, 239, 226, 0.6);
+  padding: 0 4px;
+}
+.coach button:hover { color: #fff; }
+
 /* ----------------------------------------------------------------- toast */
 
 .toast {
@@ -584,6 +631,8 @@ body.finale { background: #000; }
     font-size: 15px;
   }
   body.sheet-open .back-btn { display: none; }
+  .coach { bottom: calc(64px + env(safe-area-inset-bottom)); font-size: 13px; }
+  body.sheet-open .coach { display: none; }
 }
 
 /* --- Paysage court : panneaux sur le côté, la scène garde la hauteur --- */

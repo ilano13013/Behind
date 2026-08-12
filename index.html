@@ -37,8 +37,7 @@
       <input id="seed" type="text" value="rue-des-lilas" spellcheck="false">
     </label>
     <button id="start" class="primary">Entrer dans la rue</button>
-    <p class="hint only-desktop">Clic sur une fenêtre pour entrer · Échap pour ressortir · Espace pour la pause</p>
-    <p class="hint only-mobile">Touchez une fenêtre pour entrer · « ‹ La façade » pour ressortir</p>
+    <p class="hint">Le jeu vous guidera pas à pas. Le bouton <b>?</b> en haut explique tout à tout moment.</p>
   </div>
 </div>
 
@@ -67,6 +66,7 @@
     <div id="influence-dots" class="dots"></div>
   </div>
 
+  <button id="btn-aide" class="card icon-btn" title="Comment jouer">?</button>
   <button id="btn-chronique" class="card icon-btn only-mobile" title="Chronique">☰</button>
   <button id="btn-secrets" class="card icon-btn" title="Secrets">✦ <span id="secret-count">0</span></button>
 </header>
@@ -101,6 +101,21 @@
 <div id="interventions" class="hidden">
   <div class="interv-head">Vous pouvez agir, un peu.</div>
   <div id="interv-list" class="interv-list"></div>
+</div>
+
+<!-- Conseil du moment : il disparaît dès que le geste est fait. -->
+<div id="coach" class="coach hidden">
+  <span id="coach-text"></span>
+  <button id="coach-close" title="Ne plus afficher">×</button>
+</div>
+
+<!-- Comment jouer -->
+<div id="guide-panel" class="overlay hidden">
+  <div class="intro-card guide-card">
+    <h2>Comment jouer</h2>
+    <div id="guide-body"></div>
+    <button id="guide-close" class="primary">J'ai compris</button>
+  </div>
 </div>
 
 <!-- Secrets -->

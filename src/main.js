@@ -18,6 +18,7 @@ import { Hud, toast } from './ui/hud.js';
 import { ChronicleView } from './ui/chronicle.js';
 import { Inspector } from './ui/inspector.js';
 import { InterventionBar } from './ui/interventions.js';
+import { Guide } from './ui/guide.js';
 import { SECRET_LIST } from './sim/secrets.js';
 
 // Une seconde réelle = dix minutes de simulation à vitesse normale.
@@ -35,6 +36,7 @@ let hud = null;
 let chronicle = null;
 let inspector = null;
 let interventions = null;
+let guide = null;
 
 let speed = 1;
 let accumulator = 0;
@@ -63,13 +65,18 @@ function start() {
   layout = new FacadeLayout(world);
 
   hud = new Hud(world, { onSpeed: setSpeed });
-  chronicle = new ChronicleView(world, { onFocus: focusBeat });
+  chronicle = new ChronicleView(world, {
+    onFocus: focusBeat,
+    onExpand: () => guide?.accomplir('pourquoi'),
+  });
   inspector = new Inspector(world, { onSelectPerson, onClose: () => leave() });
   interventions = new InterventionBar(world);
+  guide = new Guide({ onNeedsLayout: () => updateChrome() });
 
   hud.show();
   chronicle.show();
 
+  world.bus.on('intervention', () => guide?.accomplir('agir'));
   world.bus.on('secret', ({ title }) => toast(`Secret découvert — ${title}`, 'secret'));
   world.bus.on('hidden-unlocked', () => {
     toast('Quelque chose a changé. La fenêtre éteinte n\'est plus tout à fait éteinte.', 'secret');
@@ -166,6 +173,7 @@ function reservedSpace() {
     if (visible(sheet)) bottom = Math.max(bottom, layout.height - sheet.getBoundingClientRect().top + 8);
     else if (visible(chron)) bottom = Math.max(bottom, layout.height - chron.getBoundingClientRect().top + 8);
     else bottom = 80; // place du bouton « la façade »
+    if (guide?.courant) bottom = Math.max(bottom, 120);
   } else if (narrow) {
     if (visible(sheet)) right = Math.max(right, layout.width - sheet.getBoundingClientRect().left + 10);
     else if (visible(chron)) right = Math.max(right, layout.width - chron.getBoundingClientRect().left + 10);
@@ -173,6 +181,7 @@ function reservedSpace() {
   } else {
     if (visible(sheet)) right = Math.max(right, layout.width - sheet.getBoundingClientRect().left + 12);
     if (visible(chron)) bottom = Math.max(bottom, 150);
+    if (guide?.courant) bottom = Math.max(bottom, 90);
   }
   // On ne laisse jamais l'interface avaler plus des deux tiers de l'écran.
   bottom = Math.min(bottom, layout.height * 0.66);
@@ -231,6 +240,10 @@ function installInput() {
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      if (guide?.panelOuvert) {
+        guide.closePanel();
+        return;
+      }
       if (!document.getElementById('secrets-panel').classList.contains('hidden')) {
         toggleSecrets(false);
         return;
@@ -279,6 +292,7 @@ function enterApartment(apt) {
 
   camera.enter(apt);
   inspector.open(apt);
+  guide?.accomplir('entrer');
   if (!apt.hidden) interventions.setTarget(null);
   // Sur mobile, la fiche et la chronique ne cohabitent pas.
   if (narrow) document.getElementById('chronicle').classList.add('folded');
@@ -294,6 +308,7 @@ function leave() {
 }
 
 function onSelectPerson(person) {
+  if (person) guide?.accomplir('habitant');
   if (!person) {
     if (camera.zoomed && camera.apartment && !camera.apartment.hidden) {
       interventions.setTarget(null);

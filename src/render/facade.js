@@ -278,67 +278,107 @@ function drawSilhouettes(ctx, world, r, occupants, time) {
   ctx.beginPath();
   ctx.rect(r.x, r.y, r.w, r.h);
   ctx.clip();
-  const floorY = r.y + r.h * 0.98;
+  const floorY = r.y + r.h * 1.02;
   const shown = occupants.slice(0, 3);
-  for (const p of shown) {
-    const sway = Math.sin(time * 0.5 + p.id * 1.7) * 0.5 + 0.5;
-    const px = r.x + r.w * (0.2 + sway * 0.6);
-    const h = r.h * (p.age < 12 ? 0.62 : 0.85);
-    ctx.globalAlpha = 0.72;
+  shown.forEach((p, i) => {
+    // Les habitants se répartissent dans la pièce au lieu de se planter
+    // tous au milieu de la vitre, face à la rue.
+    const lane = shown.length > 1 ? (i + 0.5) / shown.length : 0.5;
+    const sway = Math.sin(time * 0.35 + p.id * 1.7) * 0.12;
+    const px = r.x + r.w * Math.max(0.14, Math.min(0.86, lane + sway));
+    const h = r.h * (p.age < 12 ? 0.5 : 0.66);
     drawTinySilhouette(ctx, p, px, floorY, h, time);
-  }
+  });
   ctx.restore();
 }
 
 /**
- * Silhouette de fenêtre : trop petite pour la marionnette complète, donc
- * dessinée à part, en formes simples mais reconnaissables.
+ * Silhouette de fenêtre.
+ *
+ * Ce sont des gens à contre-jour derrière un rideau, pas des ombres.
+ * Trois choses les rendaient inquiétantes : le noir presque pur, la
+ * posture figée de face, et la taille — ils remplissaient la vitre. On
+ * les dessine donc plus petits, en brun chaud translucide, de trois
+ * quarts, et occupés à quelque chose.
  */
 function drawTinySilhouette(ctx, person, x, y, h, time) {
-  const look = appearance(person);
-  const t = time + person.id;
-  const sleeping = person.action?.id === 'dormir';
-  ctx.fillStyle = 'rgba(30,20,15,0.82)';
+  const t = time + person.id * 1.3;
+  const act = person.action?.id;
+  const side = person.id % 2 ? 1 : -1;
 
-  if (sleeping) {
-    roundRect(ctx, x - h * 0.35, y - h * 0.16, h * 0.7, h * 0.16, h * 0.07);
+  // Brun chaud, jamais noir : la lampe est derrière eux, elle traverse.
+  const body = 'rgba(96,58,36,0.62)';
+  const dark = 'rgba(74,42,26,0.7)';
+  ctx.fillStyle = body;
+  ctx.strokeStyle = body;
+
+  if (act === 'dormir' || act === 'soigner') {
+    // Allongé, tout en bas : à peine une bosse sous une couverture.
+    ctx.globalAlpha = 0.5;
+    roundRect(ctx, x - h * 0.42, y - h * 0.2, h * 0.84, h * 0.2, h * 0.09);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(x - h * 0.3, y - h * 0.2, h * 0.1, 0, Math.PI * 2);
+    ctx.arc(x - h * 0.34, y - h * 0.26, h * 0.1, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 1;
     return;
   }
 
-  const bob = Math.abs(Math.sin(t * 2)) * h * 0.02;
-  const headR = h * 0.17;
-  // Corps
+  const sitting = act === 'tv' || act === 'lire' || act === 'jeu'
+    || act === 'manger' || act === 'ruminer' || act === 'boire'
+    || act === 'teletravail' || act === 'chercher_emploi';
+  const busy = act === 'cuisiner' || act === 'menage' || act === 'bricoler'
+    || (person.action?.def?.noise ?? 0) > 0.3;
+  const dancing = act === 'musique' || act === 'fete' || act === 'invite';
+
+  const scale = sitting ? 0.72 : 1;
+  const bob = dancing ? Math.abs(Math.sin(t * 4)) * h * 0.05
+    : busy ? Math.abs(Math.sin(t * 3)) * h * 0.015
+      : Math.sin(t * 1.2) * h * 0.008;
+  const hipY = y - h * 0.02;
+  const shY = hipY - h * 0.42 * scale - bob;
+  const headR = h * 0.135;
+  const headY = shY - headR * 1.15;
+
+  // Buste : des épaules arrondies, pas un trapèze coupé au couteau.
   ctx.beginPath();
-  ctx.moveTo(x - h * 0.13, y);
-  ctx.lineTo(x - h * 0.11, y - h * 0.55 - bob);
-  ctx.lineTo(x + h * 0.11, y - h * 0.55 - bob);
-  ctx.lineTo(x + h * 0.13, y);
+  ctx.moveTo(x - h * 0.13, hipY);
+  ctx.quadraticCurveTo(x - h * 0.15, shY + h * 0.04, x - h * 0.1, shY);
+  ctx.quadraticCurveTo(x, shY - h * 0.03, x + h * 0.1, shY);
+  ctx.quadraticCurveTo(x + h * 0.15, shY + h * 0.04, x + h * 0.13, hipY);
   ctx.closePath();
   ctx.fill();
-  // Bras qui bougent selon l'action.
-  const busy = person.action?.def?.noise > 0.3 || person.action?.id === 'cuisiner';
-  const swing = busy ? Math.sin(t * 5) * h * 0.16 : Math.sin(t * 1.4) * h * 0.05;
-  ctx.lineWidth = h * 0.075;
+
+  if (sitting) {
+    // Les cuisses partent sur le côté : on voit tout de suite que c'est assis.
+    ctx.beginPath();
+    roundRect(ctx, x + (side > 0 ? 0 : -h * 0.3), hipY - h * 0.05, h * 0.3, h * 0.09, h * 0.04);
+    ctx.fill();
+  }
+
+  // Bras.
+  const swing = dancing ? Math.sin(t * 4) * h * 0.22
+    : busy ? Math.sin(t * 4.5) * h * 0.14
+      : Math.sin(t * 1.1) * h * 0.03;
+  ctx.lineWidth = h * 0.065;
   ctx.lineCap = 'round';
-  ctx.strokeStyle = 'rgba(30,20,15,0.82)';
   ctx.beginPath();
-  ctx.moveTo(x - h * 0.11, y - h * 0.5 - bob);
-  ctx.lineTo(x - h * 0.2, y - h * 0.28 - bob + swing);
-  ctx.moveTo(x + h * 0.11, y - h * 0.5 - bob);
-  ctx.lineTo(x + h * 0.2, y - h * 0.28 - bob - swing);
+  ctx.moveTo(x - h * 0.1, shY + h * 0.03);
+  ctx.lineTo(x - h * 0.17, shY + h * 0.22 + swing);
+  ctx.moveTo(x + h * 0.1, shY + h * 0.03);
+  ctx.lineTo(x + h * 0.17, shY + h * 0.22 - swing);
   ctx.stroke();
-  // Tête
+
+  // Tête de trois quarts : décalée et penchée, jamais plein axe vers la rue.
+  const turn = Math.sin(t * 0.5) * h * 0.03 + side * h * 0.02;
   ctx.beginPath();
-  ctx.arc(x, y - h * 0.55 - headR * 0.8 - bob, headR, 0, Math.PI * 2);
+  ctx.ellipse(x + turn, headY, headR * 0.92, headR, side * 0.12, 0, Math.PI * 2);
   ctx.fill();
-  // Une mèche de cheveux, pour ne pas avoir que des boules noires.
-  ctx.fillStyle = 'rgba(20,14,10,0.9)';
+  // Une nuque plus dense : ça suffit à donner une direction au regard.
+  ctx.fillStyle = dark;
   ctx.beginPath();
-  ctx.arc(x, y - h * 0.55 - headR * 1.05 - bob, headR * 0.92, Math.PI, Math.PI * 2);
+  ctx.ellipse(x + turn - side * headR * 0.25, headY - headR * 0.2,
+    headR * 0.75, headR * 0.7, side * 0.2, 0, Math.PI * 2);
   ctx.fill();
 }
 

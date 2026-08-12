@@ -47,6 +47,20 @@ Il reste une case à cocher une seule fois, côté GitHub :
 
 ---
 
+## Apprendre à y jouer
+
+Behind ne ressemble à rien de familier : on n'y dirige personne, on n'y perd
+pas, et le bouton le plus important est une fenêtre. Le jeu explique donc
+lui-même :
+
+- **Quatre conseils** apparaissent un par un à la première partie, dans
+  l'ordre où on en a besoin. Chacun disparaît dès qu'on a fait le geste —
+  pas au bout d'un minuteur.
+- Le bouton **?** ouvre « Comment jouer » à tout moment : ce qu'on est, ce
+  qu'on regarde, comment lire les causes, ce que coûte un geste, et le but.
+
+---
+
 ## Le principe
 
 Au lancement, on ne voit que la façade. Elle vit en permanence : lumières qui
@@ -222,9 +236,26 @@ décalées, s'énerver en tremblant, pianoter, téléphoner en gesticulant.
 opposition bras/jambes, fondu entre poses, retard de la tête sur la main, et
 absence de divergence sur l'ensemble des poses.
 
-Chaque appartement est meublé d'après ses occupants : le désordre suit le
-besoin de confort et le caractère, le nombre de cadres au mur suit le nombre
-d'habitants, l'usure suit l'entretien de l'immeuble.
+### Aucun appartement n'en répète un autre
+
+Tous les logements partageaient la même disposition : mêmes meubles, mêmes
+places, dans le même ordre de gauche à droite. Seules les couleurs
+changeaient, et au bout de cinq fenêtres on avait tout vu.
+
+Chaque appartement tire maintenant son propre plan
+(`src/render/interior-plan.js`), une fois pour toutes, à partir de son
+identifiant — donc stable pendant la partie, et différent d'une partie à
+l'autre : une disposition parmi cinq, un sens de lecture, des largeurs de
+bandes inégales, des variantes de canapé, de lit, de table et de cuisine, un
+meuble secondaire (bibliothèque, penderie, bureau, commode, buffet), un
+papier peint et un type de décor mural.
+
+Surtout, la pièce se remplit d'objets qui **appartiennent à ses habitants** :
+la guitare du musicien, le chevalet de l'artiste, l'établi du bricoleur, les
+jouets s'il y a des enfants, le berceau s'il y a un bébé, les cartons de
+l'étudiant, les bouteilles de celui qui boit trop, le courrier qui s'entasse
+chez celui qui a des dettes. On doit pouvoir deviner qui vit là sans lire la
+fiche.
 
 L'humour est partout et sort de la simulation elle-même : le barbecue sur un
 balcon d'un mètre carré, le dégât des eaux du bricoleur trop confiant, le mot
@@ -334,5 +365,6 @@ le jeu, `npm start` écoute sur toutes les interfaces : ouvrez
 | Fiche complète d'un habitant | clic sur le nom | toucher le nom |
 | *Pourquoi c'est arrivé* | clic sur une ligne de chronique | idem |
 | Chronique | toujours visible | bouton ☰ |
+| Comment jouer | bouton ? | bouton ? |
 
 Dans la console : `behind.avance(30)` fait passer trente jours d'un coup.
