@@ -8,18 +8,42 @@ influencer leur quotidien qu'à la marge — un cadeau anonyme, une lettre, une
 occasion. Chaque partie raconte des centaines d'histoires différentes, et
 aucune n'est écrite à l'avance.
 
-```bash
-npm start          # http://localhost:8000
-```
+## Y jouer
 
-Aucune dépendance, aucune compilation. Le jeu est du JavaScript natif servi
-tel quel ; `npm start` ne fait que lancer un serveur statique.
+**Le plus simple : `behind.html`.** Un seul fichier, à la racine du dépôt.
+Téléchargez-le et ouvrez-le — double-clic, glissé dans un navigateur, ou
+envoyé par message à quelqu'un. Pas de serveur, pas d'installation, pas de
+connexion : tout le jeu tient dedans, y compris le CSS et les icônes.
+
+C'est aussi le fichier à déposer tel quel sur n'importe quel hébergement
+statique si vous voulez une adresse à partager.
 
 ```bash
+npm start          # serveur local : http://localhost:8000
+                   # affiche aussi l'adresse à taper sur le téléphone
+npm run build      # reconstruit behind.html depuis les sources
 npm run sim        # fait tourner l'immeuble 5 ans sans écran et raconte
 npm run sim 20 ma-graine
 npm test           # 42 vérifications : simulation et animation
 ```
+
+Aucune dépendance, aucune compilation nécessaire pour développer : le jeu
+est du JavaScript natif, et `npm start` ne fait que servir le dossier.
+`npm run build` n'existe que pour produire le fichier unique.
+
+> **Pourquoi un build alors qu'il n'y a rien à compiler ?**
+> Le code est écrit en modules ES. Un navigateur refuse de charger des
+> modules depuis un `file://` : ouvrir `index.html` en double-cliquant ne
+> donnerait rien. `tools/build.js` assemble les trente-deux modules dans un
+> seul script classique, ce qui rend le fichier ouvrable partout. Il vérifie
+> au passage ses propres hypothèses — imports nommés uniquement, pas
+> d'export par défaut, pas d'import dynamique, pas de cycle — et s'arrête
+> net si l'une d'elles tombe, plutôt que de produire un fichier cassé.
+
+Une page GitHub Pages est configurée dans `.github/workflows/pages.yml` :
+elle lance les tests, reconstruit le fichier unique et publie le dépôt.
+Il reste une case à cocher une seule fois, côté GitHub :
+**Settings → Pages → Source → « GitHub Actions »**.
 
 ---
 

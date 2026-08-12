@@ -1,0 +1,57 @@
+# Publie Behind sur GitHub Pages.
+#
+# Le jeu est entièrement statique : il n'y a rien à compiler pour le servir.
+# On reconstruit quand même behind.html au passage, pour que le fichier
+# unique proposé au téléchargement soit toujours à jour avec les sources.
+#
+# Une seule chose à faire à la main, une fois : dans les réglages du dépôt,
+# Settings → Pages → Source → « GitHub Actions ».
+
+name: Pages
+
+on:
+  push:
+    branches: [main, claude/behind-life-simulator-sjf0b2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement à la fois ; on laisse finir celui en cours.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Vérifications
+        run: npm test
+
+      - name: Reconstruire le fichier unique
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
