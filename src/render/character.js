@@ -14,9 +14,10 @@ import { PALETTE, shade, rgba } from './palette.js';
 import { INK, LINE, ink, paint, solid, capsulePath, roundRect } from './ink.js';
 import { updateRig, POSES, poseFor, applySpeech, startleOf } from './anim.js';
 import {
-  appearance, heightFactor, JAWS, EYES, NOSES, NOSE_FILLED, MOUTHS,
-  HAIR, HAIR_BEHIND, BEARDS, BEARD_COVERS_MOUTH,
-  drawTopDetails, drawCollar, drawAccessory, drawTinyAccessory,
+  appearance, outfitOf, heightFactor, HEADS, EYES, NOSES, MOUTHS,
+  HAIR, HAIR_BEHIND, BEARDS, BEARD_COVERS_MOUTH, GLASSES,
+  drawTopDetails, drawCollar, drawAccessory, drawTinyAccessory, drawHeadAccessory,
+  drawShoe,
 } from './wardrobe.js';
 
 // Le canon de la charte : « proportions légèrement caricaturales ». Ni le
@@ -42,7 +43,7 @@ export function emotionOf(person) {
 
   const mood = person.mood ?? 60;
   const stress = person.stress ?? 20;
-  const energie = person.needs?.energie ?? 70;
+  const energie = person.needs?.get?.('energie') ?? 70;
   const act = person.action?.id;
 
   if (act === 'dormir' || act === 'soigner') return { kind: 'dort', force: 1 };
@@ -115,7 +116,7 @@ function drawHand(ctx, x, y, angle, open, skin, size, outline = true) {
 // les coutures internes disparaissent et le membre devient continu.
 
 /** Une jambe entière, habillée du bas choisi dans la garde-robe. */
-function drawLeg(ctx, L, B, look, outline, silhouette) {
+function drawLeg(ctx, L, B, look, outline, silhouette, skirted = false) {
   const bot = look.bottom;
   const skin = silhouette ? INK : look.skin;
   const cloth = silhouette ? INK : look.bottomColor;
@@ -129,6 +130,10 @@ function drawLeg(ctx, L, B, look, outline, silhouette) {
     capsulePath(ctx, L.hx, L.hy, L.kx, L.ky, 6.0 * B, 4.9 * B);
     capsulePath(ctx, L.kx, L.ky, L.fx, L.fy, 4.9 * B, 3.9 * B);
   }, skin, outline);
+
+  // Sous une jupe, la jambe reste nue : le volume est dessiné après, une
+  // seule fois pour les deux jambes.
+  if (skirted) return;
 
   // Puis le tissu par-dessus, découpé à la bonne longueur.
   const hem = hemPoint(L, cut);
@@ -167,6 +172,20 @@ function drawLeg(ctx, L, B, look, outline, silhouette) {
     ctx.strokeStyle = rgba(shade(look.bottomColor, -0.5), 0.6);
     ctx.lineWidth = LINE * 0.45;
     ctx.stroke();
+  }
+  // Jean déchiré : deux accrocs francs sur la cuisse, la peau dessous.
+  if (bot.torn) {
+    ctx.strokeStyle = look.skin;
+    ctx.lineWidth = LINE * 1.1;
+    ctx.lineCap = 'round';
+    for (const k of [0.3, 0.52]) {
+      const tx = L.hx + (L.kx - L.hx) * k;
+      const ty = L.hy + (L.ky - L.hy) * k;
+      ctx.beginPath();
+      ctx.moveTo(tx - 2.4 * B, ty);
+      ctx.lineTo(tx + 2.4 * B, ty - 1);
+      ctx.stroke();
+    }
   }
 }
 
@@ -230,6 +249,25 @@ function drawArm(ctx, sx, sy, shoulder, elbow, open, B, M, look, outline, silhou
     }
   }
 
+  // Tatouage : trois marques sur l'avant-bras, visibles seulement si la
+  // manche ne le couvre pas. C'est peu, mais on le remarque tout de suite.
+  if (outline && look.tattoo && sleeve !== 1) {
+    ctx.save();
+    ctx.strokeStyle = rgba(INK, 0.5);
+    ctx.lineWidth = LINE * 0.55;
+    ctx.lineCap = 'round';
+    for (const k of [0.35, 0.5, 0.65]) {
+      const tx = ex + (wx - ex) * k;
+      const ty = ey + (wy - ey) * k;
+      const a = Math.atan2(wy - ey, wx - ex);
+      ctx.beginPath();
+      ctx.moveTo(tx - Math.sin(a) * 2.6 * B, ty + Math.cos(a) * 2.6 * B);
+      ctx.lineTo(tx + Math.sin(a) * 2.6 * B, ty - Math.cos(a) * 2.6 * B);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   if (outline) drawTinyAccessory(ctx, look, 'poignet', wx, wy, 3.4 * B);
   drawHand(ctx, wx, wy, wristA + Math.PI, open, skin, 5.0 * B, outline);
 }
@@ -241,7 +279,14 @@ function drawArm(ctx, sx, sy, shoulder, elbow, open, B, M, look, outline, silhou
  * @param {object} o { time, dt, facing, silhouette, alpha, pose }
  */
 export function drawCharacter(ctx, person, x, y, h, o = {}) {
-  const look = appearance(person);
+  // Le visage est permanent, la tenue est un contexte : on fusionne les
+  // deux ici, une fois par image. `o.outfit` permet à la planche de forcer
+  // un contexte précis.
+  const base = appearance(person);
+  const fit = o.outfit
+    ? (base.outfits[o.outfit] ?? base.outfits.quotidien)
+    : outfitOf(person);
+  const look = { ...base, ...fit };
   const M = look.proportions;
   const t = (o.time ?? 0) + person.id * 0.7;
   const silhouette = o.silhouette === true;
@@ -316,15 +361,41 @@ export function drawCharacter(ctx, person, x, y, h, o = {}) {
       fy: -Math.abs(Math.sin(ang)) * 7,
     };
   };
+  const skirted = look.bottom.skirt === true;
   for (const L of [legGeom(-1, c.legL), legGeom(1, c.legR)]) {
-    drawLeg(ctx, L, B, look, outline, silhouette);
-    look.shoe(ctx, L.fx, L.fy, L.side, silhouette ? INK : look.shoeColor, silhouette, look.skin);
+    drawLeg(ctx, L, B, look, outline, silhouette, skirted);
+    drawShoe(ctx, look.shoe, L.fx, L.fy, L.side, silhouette ? INK : look.shoeColor,
+      silhouette, silhouette ? INK : look.skin);
   }
 
   // 3. Bassin : il relie les deux cuisses, sinon le personnage est fendu.
   solid(ctx, () => {
     capsulePath(ctx, -spread, hipY - 1, spread, hipY - 1, 5.6 * B * M.hip);
   }, trousers, outline);
+
+  // 3 bis. La jupe : UN volume par-dessus les deux jambes, pas un pantalon
+  // large — c'est exactement la différence entre une jupe et un sarouel.
+  if (skirted) {
+    const hemYs = hipY * (1 - look.bottom.length);
+    const hemW = hiW * look.bottom.width;
+    solid(ctx, () => {
+      ctx.moveTo(-hiW * 0.95, hipY - 3);
+      ctx.lineTo(hiW * 0.95, hipY - 3);
+      ctx.quadraticCurveTo(hemW * 1.02, (hipY + hemYs) / 2, hemW, hemYs);
+      ctx.quadraticCurveTo(0, hemYs + 3, -hemW, hemYs);
+      ctx.quadraticCurveTo(-hemW * 1.02, (hipY + hemYs) / 2, -hiW * 0.95, hipY - 3);
+      ctx.closePath();
+    }, trousers, outline);
+    if (outline && look.bottom.pleats) {
+      ink(ctx, LINE * 0.5);
+      for (let i = -2; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * hiW * 0.32, hipY - 1);
+        ctx.lineTo(i * hemW * 0.42, hemYs + 1);
+        ctx.stroke();
+      }
+    }
+  }
 
   // 4. Cou, avant le buste : le col viendra le recouvrir à la base.
   ctx.save();
@@ -415,7 +486,7 @@ function drawHead(ctx, person, look, c, r, t, silhouette) {
 
   // Crâne + mâchoire : une seule silhouette, pas un rond.
   ctx.beginPath();
-  (JAWS[look.jaw] ?? JAWS[0])(ctx, r);
+  (HEADS[look.head] ?? HEADS[0])(ctx, r);
   ctx.closePath();
   paint(ctx, skin, !silhouette);
 
@@ -459,29 +530,29 @@ function drawHead(ctx, person, look, c, r, t, silhouette) {
 
   drawBrows(ctx, look, c, r, tx, eyeY, eyeDx);
 
-  if (look.shades) drawShades(ctx, look, r, tx, eyeY);
-  else {
-    for (const side of [-1, 1]) drawEye(ctx, E, c, r, side, tx, eyeY, eyeDx, turn);
-    if (look.glasses) drawGlasses(ctx, r, tx, eyeY, eyeDx);
-  }
+  // Les yeux d'abord, les lunettes ensuite : des verres translucides
+  // laissent voir le regard au lieu de l'effacer.
+  for (const side of [-1, 1]) drawEye(ctx, E, c, r, side, tx, eyeY, eyeDx, turn);
+  if (look.glasses >= 0) drawGlasses(ctx, GLASSES[look.glasses], look, r, tx, eyeY, eyeDx);
 
   // Pilosité AVANT le nez et la bouche : peinte après, la barbe recouvrait
   // la bouche et le visage n'avait plus d'expression.
   const beard = BEARDS[look.beard];
   if (beard) {
     ctx.beginPath();
-    beard(ctx, r);
-    paint(ctx, look.beard === 6 ? rgba(look.hair, 0.34) : look.hair,
-      look.beard !== 6, LINE * 0.8);
+    beard.draw(ctx, r);
+    paint(ctx, beard.faded ? rgba(look.hair, 0.34) : look.hair,
+      !beard.faded, LINE * 0.8);
   }
 
   drawNose(ctx, look, r, tx, eyeY);
   drawMouth(ctx, look, c, r, tx, BEARD_COVERS_MOUTH.has(look.beard));
 
-  // Cheveux de devant, puis couvre-chef par-dessus tout.
+  // Cheveux de devant, puis casque audio et couvre-chef par-dessus tout.
   ctx.beginPath();
   hairShape(ctx, r);
   paint(ctx, look.hair, true, LINE * 0.9);
+  drawHeadAccessory(ctx, look, r);
   if (look.hat) look.hat.draw(ctx, r, look.hat.color, false);
 
   const emo = emotionOf(person);
@@ -608,9 +679,10 @@ function drawEye(ctx, E, c, r, side, tx, eyeY, eyeDx, turn) {
 function drawNose(ctx, look, r, tx, eyeY) {
   const nx = tx * 1.4;
   const ny = eyeY + r * 0.16;
+  const N = NOSES[look.nose] ?? NOSES[0];
   ctx.beginPath();
-  (NOSES[look.nose] ?? NOSES[0])(ctx, r, nx, ny);
-  if (NOSE_FILLED.has(look.nose)) {
+  N.draw(ctx, r, nx, ny);
+  if (N.filled) {
     ctx.fillStyle = rgba(shade(look.skin, -0.3), 0.9);
     ctx.fill();
   }
@@ -665,51 +737,62 @@ function drawMouth(ctx, look, c, r, tx, onBeard = false) {
   }
 }
 
-function drawShades(ctx, look, r, tx, eyeY) {
-  // Verres translucides : opaques, ils effaçaient le regard, et avec une
-  // barbe il ne restait plus rien du visage.
-  for (const dx of [-r * 0.92, r * 0.14]) {
+/**
+ * Lunettes : huit styles du catalogue, un seul dessin. Les solaires ont des
+ * verres translucides — opaques, ils effaçaient le regard, et avec une
+ * barbe il ne restait plus rien du visage.
+ */
+function drawGlasses(ctx, G, look, r, tx, eyeY, eyeDx) {
+  const sun = G.sun === true;
+  const frame = () => {
+    for (const side of [-1, 1]) {
+      const ex = tx + side * eyeDx;
+      ctx.beginPath();
+      if (G.kind === 'ronde') ctx.ellipse(ex, eyeY, r * 0.27, r * 0.24, 0, 0, Math.PI * 2);
+      else if (G.kind === 'carree') roundRect(ctx, ex - r * 0.28, eyeY - r * 0.22, r * 0.56, r * 0.44, r * 0.09);
+      else if (G.kind === 'fine') ctx.ellipse(ex, eyeY, r * 0.24, r * 0.17, 0, 0, Math.PI * 2);
+      else if (G.kind === 'demi') roundRect(ctx, ex - r * 0.24, eyeY + r * 0.02, r * 0.48, r * 0.22, r * 0.08);
+      else if (G.kind === 'papillon') {
+        ctx.moveTo(ex - side * r * 0.28, eyeY + r * 0.14);
+        ctx.quadraticCurveTo(ex - side * r * 0.3, eyeY - r * 0.24, ex, eyeY - r * 0.2);
+        ctx.quadraticCurveTo(ex + side * r * 0.32, eyeY - r * 0.28, ex + side * r * 0.28, eyeY);
+        ctx.quadraticCurveTo(ex + side * r * 0.2, eyeY + r * 0.18, ex - side * r * 0.28, eyeY + r * 0.14);
+        ctx.closePath();
+      } else { // aviateur
+        ctx.moveTo(ex - r * 0.28, eyeY - r * 0.18);
+        ctx.lineTo(ex + r * 0.28, eyeY - r * 0.18);
+        ctx.quadraticCurveTo(ex + r * 0.26, eyeY + r * 0.26, ex, eyeY + r * 0.28);
+        ctx.quadraticCurveTo(ex - r * 0.26, eyeY + r * 0.26, ex - r * 0.28, eyeY - r * 0.18);
+        ctx.closePath();
+      }
+      if (sun) {
+        ctx.fillStyle = 'rgba(32,37,46,0.72)';
+        ctx.fill();
+      }
+      ctx.strokeStyle = rgba(INK, G.kind === 'fine' ? 0.7 : 0.85);
+      ctx.lineWidth = r * (G.kind === 'fine' ? 0.045 : 0.06);
+      ctx.stroke();
+      if (sun) {
+        // Un éclat sur chaque verre : sans ça, ce sont deux trous noirs.
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        ctx.beginPath();
+        ctx.moveTo(ex - r * 0.14, eyeY + r * 0.1);
+        ctx.lineTo(ex + r * 0.02, eyeY - r * 0.18);
+        ctx.lineTo(ex + r * 0.1, eyeY - r * 0.18);
+        ctx.lineTo(ex - r * 0.06, eyeY + r * 0.1);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    // Le pont.
     ctx.beginPath();
-    roundRect(ctx, tx + dx, eyeY - r * 0.28, r * 0.78, r * 0.46, r * 0.15);
-    ctx.fillStyle = rgba(look.skin, 1);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(32,37,46,0.78)';
-    ctx.fill();
-    ink(ctx, LINE * 0.8);
+    ctx.moveTo(tx - eyeDx + r * 0.26, eyeY - (G.kind === 'demi' ? -r * 0.08 : r * 0.02));
+    ctx.lineTo(tx + eyeDx - r * 0.26, eyeY - (G.kind === 'demi' ? -r * 0.08 : r * 0.02));
+    ctx.strokeStyle = rgba(INK, 0.8);
+    ctx.lineWidth = r * 0.05;
     ctx.stroke();
-  }
-  ctx.beginPath();
-  ctx.moveTo(tx - r * 0.14, eyeY - r * 0.16);
-  ctx.lineTo(tx + r * 0.14, eyeY - r * 0.16);
-  ink(ctx, r * 0.055);
-  ctx.stroke();
-  // Un éclat sur chaque verre : sans ça, ce sont deux trous noirs.
-  ctx.fillStyle = 'rgba(255,255,255,0.22)';
-  for (const side of [-1, 1]) {
-    ctx.beginPath();
-    ctx.moveTo(tx + side * r * 0.5 - r * 0.14, eyeY + r * 0.1);
-    ctx.lineTo(tx + side * r * 0.5 + r * 0.02, eyeY - r * 0.2);
-    ctx.lineTo(tx + side * r * 0.5 + r * 0.1, eyeY - r * 0.2);
-    ctx.lineTo(tx + side * r * 0.5 - r * 0.06, eyeY + r * 0.1);
-    ctx.closePath();
-    ctx.fill();
-  }
-}
-
-function drawGlasses(ctx, r, tx, eyeY, eyeDx) {
-  // Des verres fins et resserrés : trop larges, ils se rejoignaient et le
-  // haut du visage devenait une barre noire.
-  ctx.strokeStyle = rgba(INK, 0.8);
-  ctx.lineWidth = r * 0.055;
-  for (const side of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(tx + side * eyeDx, eyeY, r * 0.26, r * 0.23, 0, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.beginPath();
-  ctx.moveTo(tx - eyeDx + r * 0.26, eyeY);
-  ctx.lineTo(tx + eyeDx - r * 0.26, eyeY);
-  ctx.stroke();
+  };
+  frame();
 }
 
 // --- Couché -----------------------------------------------------------------

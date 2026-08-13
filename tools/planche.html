@@ -18,13 +18,15 @@
 <canvas id="c1"></canvas>
 <h2>Les douze expressions</h2>
 <canvas id="c2"></canvas>
+<h2>Les sept tenues</h2>
+<canvas id="c5"></canvas>
 <h2>Les animations</h2>
 <canvas id="c3"></canvas>
 
 <script type="module">
 import { World } from '../src/sim/world.js';
 import { drawCharacter, emotionOf } from '../src/render/character.js';
-import { appearance, MORPHO, heightFactor } from '../src/render/wardrobe.js';
+import { appearance, MORPHO, heightFactor, OUTFIT_CONTEXTS } from '../src/render/wardrobe.js';
 import { POSES } from '../src/render/anim.js';
 
 const world = new World({ seed: new URLSearchParams(location.search).get('seed') ?? 'planche' });
@@ -111,9 +113,19 @@ grid(document.getElementById('c2'), EXPRESSIONS, 6, 130, 180, (ctx, kind, cx, cy
   model._rig = null;
 });
 
+// 5 — Les sept tenues de trois habitants : la même personne, sept contextes.
+const mannequins = [people[1], people[6], people[13]];
+const cases = [];
+for (const p of mannequins) for (const c of OUTFIT_CONTEXTS) cases.push({ p, c });
+grid(document.getElementById('c5'), cases, 7, 132, 200, (ctx, { p, c }, cx, cy, w, h) => {
+  drawCharacter(ctx, p, cx, cy + h - 26, h - 50,
+    { time: 1.2, dt: 1 / 60, pose: 'idle', facing: 1, outfit: c });
+  label(ctx, c, cx, cy + h - 8);
+});
+
 // 3 — Toutes les poses du catalogue.
 const poses = Object.keys(POSES);
-grid(document.getElementById('c3'), poses, 7, 140, 180, (ctx, pose, cx, cy, w, h) => {
+grid(document.getElementById('c3'), poses, 8, 132, 176, (ctx, pose, cx, cy, w, h) => {
   const p = people[(poses.indexOf(pose) * 7) % people.length];
   p._rig = null;
   for (let i = 0; i < 120; i++) {

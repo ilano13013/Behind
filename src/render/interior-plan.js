@@ -84,32 +84,96 @@ export function planFor(apt) {
 }
 
 /**
+ * Les douze décors de la planche.
+ *
+ * Un appartement n'est pas décoré au hasard : il raconte QUI y vit. Le
+ * studio de l'étudiant, le salon familial, la chambre d'ado, le repaire du
+ * gamer, l'atelier de l'artiste, la colocation, le logement du retraité, le
+ * bureau à domicile, la salle de sport improvisée, le couple sans enfant,
+ * la cuisine populaire — et le logement vide, drap sur les meubles.
+ */
+export const ARCHETYPES = ['vide', 'studio_etudiant', 'salon_familial', 'cuisine_populaire',
+  'chambre_ado', 'couple', 'retraite', 'gamer', 'artiste', 'colocation',
+  'bureau_domicile', 'sport_maison'];
+
+export function archetypeFor(world, apt, occupants) {
+  if (!occupants.length) return 'vide';
+  const adults = occupants.filter((p) => p.age >= 18);
+  const kids = occupants.filter((p) => p.age < 12);
+  const teens = occupants.filter((p) => p.age >= 12 && p.age < 20);
+  const has = (fn) => occupants.some(fn);
+
+  if (has((p) => p.job.id === 'artiste' || p.job.id === 'musicien')) return 'artiste';
+  // Le gamer : jeune, seul, joueur invétéré.
+  if (adults.length === 1 && !kids.length && adults[0].age < 38
+    && adults[0].personality.get('ouverture') > 0.55
+    && adults[0].personality.get('extraversion') < 0.45) return 'gamer';
+  if (occupants.length === 1 && occupants[0].job.id === 'etudiant') return 'studio_etudiant';
+  if (teens.length && !kids.length && occupants.length <= 3) return 'chambre_ado';
+  if (has((p) => p.job.remote)) return 'bureau_domicile';
+  if (has((p) => p.personality.has('travailleur') && p.personality.get('anxiete') < 0.4
+    && p.age >= 18 && p.age < 55 && (p.id % 5 === 0))) return 'sport_maison';
+  if (occupants.every((p) => p.isOld)) return 'retraite';
+  // La colocation : des adultes sans lien de famille.
+  if (adults.length >= 2 && !kids.length
+    && adults.every((a) => a === adults[0] || !a.relations.get(adults[0].id, false)?.isFamily)
+    && !adults.some((a) => a.relations.partner())) return 'colocation';
+  if (kids.length) return occupants.length >= 4 ? 'cuisine_populaire' : 'salon_familial';
+  if (adults.length === 2) return 'couple';
+  return 'salon_familial';
+}
+
+/** Ce que chaque décor pose dans la pièce, en plus des affaires de chacun. */
+const ARCHETYPE_PROPS = {
+  vide: ['drap_meuble', 'cartons'],
+  studio_etudiant: ['cartons', 'livres'],
+  salon_familial: ['jouets', 'panier_linge'],
+  cuisine_populaire: ['casseroles', 'epices', 'panier_linge'],
+  chambre_ado: ['ampli', 'skate'],
+  couple: ['bouquet'],
+  retraite: ['napperon', 'tricot'],
+  gamer: ['double_ecran', 'led', 'manettes'],
+  artiste: ['toiles'],
+  colocation: ['bouteilles', 'chaussures_tas'],
+  bureau_domicile: ['ordinateur', 'imprimante'],
+  sport_maison: ['velo_appart', 'halteres', 'tapis_yoga'],
+};
+
+/**
  * Ce que les habitants laissent traîner.
  *
- * C'est ce qui différencie deux appartements bien plus sûrement que la
- * couleur du canapé : on doit pouvoir deviner qui vit là sans lire la fiche.
+ * Le décor d'abord (qui vit là), puis les affaires de chacun (ce qu'ils
+ * font de leurs journées) : on doit pouvoir deviner tout ça sans lire la
+ * moindre fiche.
  */
 export function propsFor(world, apt, occupants) {
   const key = occupants.map((p) => p.id).join(',');
   if (apt._propsKey === key) return apt._props;
 
-  const props = [];
+  const archetype = archetypeFor(world, apt, occupants);
+  const props = [...(ARCHETYPE_PROPS[archetype] ?? [])];
   const has = (fn) => occupants.some(fn);
+  const add = (p) => { if (!props.includes(p)) props.push(p); };
 
-  if (has((p) => p.job.id === 'musicien')) props.push('guitare');
-  if (has((p) => p.job.id === 'artiste')) props.push('chevalet');
-  if (has((p) => p.personality.has('bricoleur'))) props.push('etabli');
-  if (has((p) => p.personality.has('cuisinier_ne'))) props.push('casseroles');
-  if (has((p) => p.personality.get('ouverture') > 0.68)) props.push('livres');
-  if (has((p) => p.age < 10)) props.push('jouets');
-  if (has((p) => p.age < 2)) props.push('berceau');
-  if (has((p) => p.addiction > 0.35)) props.push('bouteilles');
-  if (has((p) => p.job.id === 'etudiant')) props.push('cartons');
-  if (has((p) => p.isOld)) props.push('napperon');
-  if (has((p) => p.tags.has('crise'))) props.push('courrier');
-  if (has((p) => p.personality.has('organise'))) props.push('tableau');
-  if (has((p) => p.job.id === 'chomage')) props.push('ordinateur');
+  if (has((p) => p.job.id === 'musicien')) add('guitare');
+  if (has((p) => p.job.id === 'artiste')) add('chevalet');
+  if (has((p) => p.personality.has('bricoleur'))) add('etabli');
+  if (has((p) => p.personality.has('cuisinier_ne'))) add('casseroles');
+  if (has((p) => p.personality.get('ouverture') > 0.68)) add('livres');
+  if (has((p) => p.age < 10)) add('jouets');
+  if (has((p) => p.age < 2)) add('berceau');
+  if (has((p) => p.addiction > 0.35)) add('bouteilles');
+  if (has((p) => p.isOld)) add('napperon');
+  if (has((p) => p.tags.has('crise'))) add('courrier');
+  if (has((p) => p.personality.has('organise'))) add('tableau');
+  if (has((p) => p.job.id === 'chomage')) add('ordinateur');
 
+  // Les très rares de la planche : un canard en plastique dans une salle de
+  // bain de l'immeuble, une licorne gonflable dans un salon. À découvrir.
+  if ((apt.id * 31 + apt.floor * 7) % 97 === 3) add('canard');
+  if ((apt.id * 53 + apt.col * 11) % 131 === 8) add('licorne');
+
+  apt._archetype = archetype;
   apt._propsKey = key;
   apt._props = props;
   return props;

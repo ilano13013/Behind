@@ -192,19 +192,21 @@ rayon :
 
 | Rayon | Variantes |
 |---|---|
-| Morphologies | 6 — enfant, adolescent, homme adulte, femme, mature, senior |
-| Mâchoires | 9 — carrée, en pointe, lourde, ovale, ronde, longue, anguleuse, en galoche, sèche |
-| Yeux | 10 — ronds, en amande, tombants, petits, à cils, rieurs, cernés, maquillés, à paupière lourde, écarquillés |
-| Nez | 9 — droit, busqué, rond, retroussé, épaté, pointu, fort, cassé, en bouton |
-| Bouches | 9, de la pincée aux lèvres pleines |
-| Coiffures | 18 — afro, tresses, dreads, chignon, queue de cheval, banane, mulet, frange, rasé, dégarni… |
-| Pilosité | 8 — collier, barbe pleine, bouc, moustaches, favoris, barbe de trois jours |
-| Hauts | 12 — t-shirt, chemise, col roulé, sweat à capuche, veste, robe, salopette, survêtement, polo, gilet… |
-| Bas | 9 — jean, chino, jogging, short, jupe, pantalon large, costume, legging, bermuda |
-| Chaussures | 8 — baskets, bottines, mocassins, chaussons, talons, sandales, chaussures de chantier, pieds nus |
-| Couvre-chefs | 6 — casquette, bonnet, béret, bob, foulard, chapeau |
+| Morphologies | **6** — enfant, adolescent, homme adulte, femme, mature, senior |
+| Formes de têtes | **30** |
+| Coiffures | **50** — afro, tresses, dreads, chignon, queue, banane, mulet, frange, crête, rasé, dégarni, chauve… |
+| Paires d'yeux | **30** — ronds, en amande, tombants, cernés, maquillés, à paupière lourde… |
+| Nez | **25** |
+| Bouches | **40** |
+| Barbes et moustaches | **30** — collier, barbe pleine, bouc, chevron, gauloise, favoris, mouche… |
+| Pantalons | **50** — jean, chino, jogging, cargo, costume, velours, jupe (5 coupes), short, bermuda, cycliste, treillis, baggy… chacun en slim, droit ou ample |
+| Chaussures | **40** — baskets basses et montantes, bottines, mocassins, talons, sandales, tongs, chaussons, chaussures de chantier, pieds nus |
+| Accessoires | **60** — répartis sur neuf emplacements (tête, yeux, cou, poignet, oreilles, mains, peau, divers) |
+| Hauts | 23, combinés en **7 tenues** par habitant |
+| Couvre-chefs | 11, dont trois qu'on ne croise presque jamais |
+| Lunettes | 8, de vue et de soleil |
 | Motifs | uni, rayures, carreaux, pois |
-| Accessoires | écharpe, boucles, collier, montre, bretelles, cravate, tablier, badge |
+| Décors intérieurs | **12** |
 
 Le tirage est stable (il découle de l'identifiant de l'habitant, donc il ne
 change jamais) mais il n'est **pas aveugle** : l'âge, le genre, le métier et
@@ -215,8 +217,43 @@ corriger après coup laissait toujours passer trois hommes en jupe, et le
 joueur ne voyait plus que ça.
 
 Résultat sur un immeuble neuf : **130 apparences distinctes pour
-130 habitants**, aucune pièce ne dépassant 20 % de présence. `npm test` le
-vérifie, avec la cohérence de chaque tenue.
+130 habitants**, aucune pièce ne dépassant 17 % de présence. `npm test`
+vérifie chaque compte du tableau ci-dessus — si un rayon rétrécit, le test
+casse — ainsi que la cohérence de toutes les tenues.
+
+### Sept tenues, pas une
+
+Une tenue n'est pas une propriété de l'habitant, c'est un **contexte**. Le
+même voisin a sept garde-robes : quotidien, travail, sport, soirée, été,
+hiver, maison. Il dort en pyjama, va au chantier en salopette ou au cabinet
+en chemise selon son métier, sort en tenue de soirée, met un manteau en
+janvier et des sandales en juillet. C'est la simulation qui choisit —
+l'action en cours d'abord, la saison ensuite.
+
+Quelques pièces existent en un ou deux exemplaires dans tout l'immeuble et
+ne se signalent nulle part : une couronne, un casque intégral qu'on ne
+retire jamais, un masque d'alien, une paire de baskets dorées, un canard en
+plastique dans une salle de bain, une licorne gonflable dans un salon. Ils
+sont là. Le jeu ne le dira pas.
+
+### Douze intérieurs qui parlent
+
+Un appartement n'est plus seulement meublé au hasard : il est **typé** par
+qui l'habite. Studio d'étudiant, salon familial, cuisine populaire, chambre
+d'ado, couple sans enfant, retraité, gamer, atelier d'artiste, colocation,
+bureau à domicile, salle de sport improvisée — et le logement vide, meubles
+sous un drap. Chaque type apporte ses objets : le double écran et le
+bandeau LED du streamer, les toiles retournées contre le mur de l'artiste,
+le tas de chaussures de la colocation, le vélo d'appartement, le tricot du
+retraité.
+
+### La météo
+
+Pluie, neige, canicule. Elle est tirée chaque jour selon la saison, elle se
+voit sur la façade (des rayures obliques, des flocons qui dérivent, un air
+qui tremble au ras du bitume) et elle se **sent** : la canicule use et
+stresse, la pluie enferme. Un changement de temps entre dans la chronique
+comme le reste.
 
 ### Douze expressions
 
@@ -275,13 +312,22 @@ poids d'une jambe sur l'autre, et une posture de repos différente pour
 chaque habitant — personne ne se tient droit comme un i. Quand quelqu'un
 parle, la bouche s'anime et les mains accompagnent.
 
-Vingt-sept poses couvrent les actions : marche à cycle complet (bras et
+Quarante poses couvrent les actions : marche à cycle complet (bras et
 jambes opposés, double rebond), course avec les deux pieds en l'air au
 passage, touiller une casserole, porter la fourchette à la bouche, boire,
 donner un coup de balai, danser sur deux fréquences décalées, s'énerver en
 tremblant, pianoter, téléphoner, discuter avec les mains, écouter en
 hochant la tête, embrasser, jouer à la manette, réfléchir le menton dans la
-main, se relever.
+main, pleurer le visage dans les mains, rire la tête en arrière, avoir peur,
+se battre en garde de boxeur, fumer, faire défiler son téléphone, porter un
+carton, rentrer les courses, s'asseoir par terre, s'allonger, se réveiller
+en bâillant, s'habiller à cloche-pied, conduire, se relever.
+
+Toutes ne sont pas jouées par tout le monde de la même façon : les
+expansifs dansent sur la musique, les autres hochent la tête ; un enfant
+joue par terre, un adulte sur le canapé ; un appel sur deux se passe
+l'écran sous le nez plutôt qu'à l'oreille ; ruminer devient pleurer quand
+le moral tombe vraiment.
 
 Les poses « main au visage » ne sont pas réglées à l'estime : l'épaule et le
 coude sont **résolus** pour que le poignet arrive devant la bouche ou à

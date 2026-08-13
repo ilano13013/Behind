@@ -11,6 +11,7 @@ import { drawCharacter, drawSpeech } from './character.js';
 import { roundRect } from './ink.js';
 import { appearance } from './wardrobe.js';
 import { planFor, propsFor } from './interior-plan.js';
+import { contextFor } from './wardrobe.js';
 
 /** Où se tient quelqu'un en fonction de ce qu'il fait, dans SON appartement. */
 export function zoneFor(person, apt) {
@@ -49,6 +50,10 @@ export function zoneFor(person, apt) {
 export function updatePositions(world, apt, dt) {
   const occupants = occupantsOf(world, apt);
   occupants.forEach((p) => {
+    // La tenue suit ce qu'on fait et la saison : pyjama la nuit, survêt au
+    // sport, manteau en janvier. Décidé ici parce que c'est ici qu'on a
+    // à la fois l'habitant et l'horloge.
+    p.outfitContext = contextFor(p, world.clock);
     const base = zoneFor(p, apt);
     const same = occupants.filter((q) => Math.abs(zoneFor(q, apt) - base) < 0.02);
     const rank = same.indexOf(p);
@@ -756,9 +761,204 @@ function drawProps(S, props) {
         ctx.lineWidth = 2;
         ctx.strokeRect(cx - w * 0.035, S.y + h * 0.2, w * 0.07, h * 0.09);
         break;
-      default: // ordinateur
+      case 'ordinateur':
         ctx.fillStyle = '#2a3038';
         ctx.fillRect(cx - w * 0.018, V - h * 0.19, w * 0.036, h * 0.026);
+        break;
+      case 'drap_meuble':
+        // Un meuble sous un drap : la forme d'en dessous se devine à peine.
+        ctx.fillStyle = 'rgba(240,234,222,0.92)';
+        ctx.beginPath();
+        ctx.moveTo(cx - w * 0.05, V);
+        ctx.quadraticCurveTo(cx - w * 0.045, V - h * 0.14, cx - w * 0.01, V - h * 0.15);
+        ctx.quadraticCurveTo(cx + w * 0.04, V - h * 0.145, cx + w * 0.05, V - h * 0.06);
+        ctx.lineTo(cx + w * 0.055, V);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = rgba('#8a7a62', 0.5);
+        ctx.stroke();
+        break;
+      case 'double_ecran':
+        // Le poste du gamer : deux écrans, dont un vertical.
+        ctx.fillStyle = PALETTE.wood;
+        ctx.fillRect(cx - w * 0.05, V - h * 0.115, w * 0.1, h * 0.012);
+        ctx.fillStyle = '#1c2532';
+        ctx.fillRect(cx - w * 0.044, V - h * 0.17, w * 0.045, h * 0.05);
+        ctx.fillRect(cx + w * 0.008, V - h * 0.185, w * 0.026, h * 0.066);
+        ctx.fillStyle = 'rgba(120,200,255,0.5)';
+        ctx.fillRect(cx - w * 0.041, V - h * 0.166, w * 0.039, h * 0.042);
+        break;
+      case 'led':
+        // Le bandeau LED : la signature du streamer, visible de la rue.
+        ctx.fillStyle = 'rgba(150,90,220,0.55)';
+        ctx.fillRect(S.x + w * 0.06, S.y + h * 0.055, w * 0.88, h * 0.008);
+        break;
+      case 'manettes':
+        for (let k = 0; k < 2; k++) {
+          ctx.fillStyle = k ? '#3a4150' : '#2a303a';
+          ctx.beginPath();
+          ctx.ellipse(cx + k * w * 0.02, V - h * 0.008, w * 0.011, h * 0.008, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      case 'toiles':
+        // Des toiles retournées contre le mur : l'artiste n'assume pas tout.
+        for (let k = 0; k < 3; k++) {
+          ctx.fillStyle = k === 2 ? '#ded4c2' : '#cfc2aa';
+          ctx.save();
+          ctx.translate(cx + k * w * 0.012, V);
+          ctx.rotate(-0.08 - k * 0.03);
+          ctx.fillRect(-w * 0.028, -h * 0.11, w * 0.056, h * 0.11);
+          ctx.strokeStyle = rgba('#6b5540', 0.5);
+          ctx.strokeRect(-w * 0.028, -h * 0.11, w * 0.056, h * 0.11);
+          ctx.restore();
+        }
+        break;
+      case 'chaussures_tas':
+        // Le tas de chaussures de l'entrée : la colocation en un objet.
+        for (let k = 0; k < 4; k++) {
+          ctx.fillStyle = ['#3b332c', '#5a4234', '#8f8578', '#2f3540'][k];
+          ctx.beginPath();
+          ctx.ellipse(cx + (k - 1.5) * w * 0.014, V - h * 0.007 - (k % 2) * h * 0.008,
+            w * 0.013, h * 0.007, (k - 1.5) * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      case 'tricot':
+        ctx.fillStyle = '#b5563f';
+        ctx.beginPath();
+        ctx.arc(cx, V - h * 0.02, w * 0.012, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#8a8f98';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx - w * 0.01, V - h * 0.03);
+        ctx.lineTo(cx + w * 0.014, V - h * 0.048);
+        ctx.moveTo(cx + w * 0.008, V - h * 0.032);
+        ctx.lineTo(cx - w * 0.012, V - h * 0.05);
+        ctx.stroke();
+        break;
+      case 'panier_linge':
+        ctx.fillStyle = '#c9b48e';
+        ctx.beginPath();
+        ctx.moveTo(cx - w * 0.022, V);
+        ctx.lineTo(cx - w * 0.018, V - h * 0.05);
+        ctx.lineTo(cx + w * 0.018, V - h * 0.05);
+        ctx.lineTo(cx + w * 0.022, V);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#e8e0d0';
+        ctx.beginPath();
+        ctx.ellipse(cx, V - h * 0.052, w * 0.017, h * 0.01, 0, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      case 'bouquet':
+        ctx.fillStyle = '#8fa8b8';
+        ctx.fillRect(cx - w * 0.006, V - h * 0.19, w * 0.012, h * 0.035);
+        for (let k = 0; k < 5; k++) {
+          ctx.fillStyle = ['#d9556f', '#e8b13f', '#d9556f', '#c98adb', '#e07a3c'][k];
+          ctx.beginPath();
+          ctx.arc(cx + (k - 2) * w * 0.006, V - h * 0.2 - (k % 2) * h * 0.008, w * 0.005, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      case 'imprimante':
+        ctx.fillStyle = '#4a4f58';
+        ctx.fillRect(cx - w * 0.02, V - h * 0.135, w * 0.04, h * 0.022);
+        ctx.fillStyle = '#f2ece0';
+        ctx.fillRect(cx - w * 0.012, V - h * 0.14, w * 0.024, h * 0.005);
+        break;
+      case 'velo_appart':
+        ctx.strokeStyle = '#3a4150';
+        ctx.lineWidth = Math.max(1.5, w * 0.005);
+        ctx.beginPath();
+        ctx.moveTo(cx - w * 0.02, V);
+        ctx.lineTo(cx, V - h * 0.09);
+        ctx.lineTo(cx + w * 0.022, V);
+        ctx.moveTo(cx, V - h * 0.09);
+        ctx.lineTo(cx + w * 0.014, V - h * 0.12);
+        ctx.moveTo(cx - w * 0.012, V - h * 0.105);
+        ctx.lineTo(cx - w * 0.002, V - h * 0.095);
+        ctx.stroke();
+        break;
+      case 'halteres':
+        ctx.fillStyle = '#3a4150';
+        for (let k = 0; k < 2; k++) {
+          const hx = cx + k * w * 0.03;
+          ctx.fillRect(hx - w * 0.012, V - h * 0.012, w * 0.024, h * 0.004);
+          ctx.beginPath();
+          ctx.arc(hx - w * 0.012, V - h * 0.01, w * 0.006, 0, Math.PI * 2);
+          ctx.arc(hx + w * 0.012, V - h * 0.01, w * 0.006, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      case 'tapis_yoga':
+        ctx.fillStyle = '#6a9c8a';
+        ctx.fillRect(cx - w * 0.04, V - h * 0.008, w * 0.08, h * 0.008);
+        ctx.beginPath();
+        ctx.arc(cx + w * 0.04, V - h * 0.012, h * 0.011, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      case 'ampli':
+        ctx.fillStyle = '#26221e';
+        ctx.fillRect(cx - w * 0.022, V - h * 0.07, w * 0.044, h * 0.07);
+        ctx.fillStyle = '#8a7a62';
+        ctx.fillRect(cx - w * 0.017, V - h * 0.06, w * 0.034, h * 0.04);
+        break;
+      case 'skate':
+        ctx.fillStyle = '#c0503a';
+        ctx.save();
+        ctx.translate(cx, V - h * 0.02);
+        ctx.rotate(-0.5);
+        ctx.fillRect(-w * 0.028, 0, w * 0.056, h * 0.008);
+        ctx.restore();
+        ctx.fillStyle = '#2b2b30';
+        ctx.beginPath();
+        ctx.arc(cx - w * 0.008, V - h * 0.006, w * 0.004, 0, Math.PI * 2);
+        ctx.arc(cx + w * 0.014, V - h * 0.026, w * 0.004, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      case 'epices':
+        for (let k = 0; k < 4; k++) {
+          ctx.fillStyle = ['#c98a3f', '#a34e3a', '#7a8a3f', '#e0b53f'][k];
+          ctx.fillRect(cx + k * w * 0.008, S.y + h * 0.31, w * 0.006, h * 0.018);
+        }
+        break;
+      case 'canard':
+        // LE canard. Jaune, en plastique, parfaitement à sa place.
+        ctx.fillStyle = '#f2c53f';
+        ctx.beginPath();
+        ctx.ellipse(cx, V - h * 0.012, w * 0.011, h * 0.009, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx + w * 0.007, V - h * 0.026, w * 0.006, h * 0.006, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#e07a3c';
+        ctx.beginPath();
+        ctx.moveTo(cx + w * 0.012, V - h * 0.026);
+        ctx.lineTo(cx + w * 0.017, V - h * 0.024);
+        ctx.lineTo(cx + w * 0.012, V - h * 0.022);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      case 'licorne':
+        // La licorne gonflable. Personne ne sait d'où elle vient.
+        ctx.fillStyle = '#f0d9e8';
+        ctx.beginPath();
+        ctx.ellipse(cx, V - h * 0.035, w * 0.026, h * 0.022, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx + w * 0.022, V - h * 0.062, w * 0.011, h * 0.014, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#e0b53f';
+        ctx.beginPath();
+        ctx.moveTo(cx + w * 0.026, V - h * 0.074);
+        ctx.lineTo(cx + w * 0.031, V - h * 0.092);
+        ctx.lineTo(cx + w * 0.033, V - h * 0.072);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#c98adb';
+        ctx.beginPath();
+        ctx.ellipse(cx + w * 0.014, V - h * 0.07, w * 0.005, h * 0.008, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      default:
         break;
     }
   });

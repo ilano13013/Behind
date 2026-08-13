@@ -908,3 +908,67 @@ function drawStreet(ctx, world, layout) {
     ctx.fill();
   }
 }
+
+// --- Météo -------------------------------------------------------------------
+//
+// Les ambiances de la planche : jour pluvieux, hiver qui neige, canicule.
+// Un calque par-dessus la façade — la pluie raye, la neige flotte, la
+// canicule écrase tout d'un voile chaud qui tremble au ras de la rue.
+
+export function drawWeather(ctx, weather, w, h, t) {
+  if (!weather || weather.id === 'clair') return;
+  const k = weather.intensity ?? 0.6;
+  ctx.save();
+
+  if (weather.id === 'pluie') {
+    ctx.fillStyle = 'rgba(56,66,86,0.12)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(200,214,234,0.5)';
+    ctx.lineWidth = 1.2;
+    const n = Math.round(190 * k);
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      // Chaque goutte a sa colonne et sa phase : pas deux fois la même pluie.
+      const seed = i * 127.3;
+      const x = ((seed * 7.13) % 1.07) * w;
+      const speed = 620 + (i % 5) * 90;
+      const y = ((seed + t * speed) % (h + 60)) - 30;
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 4, y + 19);
+    }
+    ctx.stroke();
+  } else if (weather.id === 'neige') {
+    ctx.fillStyle = 'rgba(200,208,220,0.1)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(245,248,252,0.85)';
+    const n = Math.round(70 * k);
+    for (let i = 0; i < n; i++) {
+      const seed = i * 91.7;
+      const x = (((seed * 3.7) % 1.03) * w + Math.sin(t * 0.8 + i) * 18) % w;
+      const speed = 34 + (i % 4) * 12;
+      const y = ((seed + t * speed) % (h + 20)) - 10;
+      ctx.beginPath();
+      ctx.arc(x, y, 1.1 + (i % 3) * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (weather.id === 'canicule') {
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, 'rgba(255,196,110,0.1)');
+    g.addColorStop(1, 'rgba(255,150,70,0.16)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    // L'air qui tremble au ras du bitume.
+    ctx.strokeStyle = 'rgba(255,220,160,0.18)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      for (let x = 0; x <= w; x += 14) {
+        const y = h * (0.86 + i * 0.04) + Math.sin(x * 0.05 + t * (3 + i)) * 3;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}

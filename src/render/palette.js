@@ -58,6 +58,8 @@ export const PALETTE = {
   trousers: ['#3a4658', '#2f3a4a', '#5a4a3c', '#46504a', '#6b5340', '#38414f',
     '#7a6650', '#4a4038', '#5c5f6b', '#8a7a62', '#33455c', '#6a4c42'],
   leather: ['#3b332c', '#5a4234', '#2f3540', '#7a6250', '#4a3a2e', '#8f8578', '#d9d2c6'],
+  // Teintures : la planche assume les cheveux roses et bleus chez les jeunes.
+  dye: ['#d16ba5', '#5b8fd4', '#6fbf73', '#9a6bd4', '#e04f4f', '#4fc4c9'],
 
   // Ambiances.
   night: '#131b2b',

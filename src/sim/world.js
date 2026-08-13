@@ -33,6 +33,7 @@ export class World {
     this.clock = new Clock(opts.startTick ?? 7 * 12);
     this.bus = new EventBus();
     this.chronicle = new Chronicle();
+    this.weather = { id: 'clair', intensity: 0.5 };
 
     this.floors = opts.floors ?? 11;
     this.cols = opts.cols ?? 8;
@@ -565,7 +566,45 @@ export class World {
 
   // ------------------------------------------------------------- lent
 
+  /**
+   * La météo du jour — les ambiances de la planche : nuit calme et soirée
+   * viennent du cycle du ciel, celles-ci viennent du calendrier. Elle se
+   * voit sur la façade et se sent un peu dans les corps.
+   */
+  weatherStep() {
+    const s = this.clock.season;
+    const r = this.rng.fork(`meteo-${this.clock.day}`);
+    let next = 'clair';
+    if (s === 0) next = r.chance(0.2) ? 'neige' : r.chance(0.32) ? 'pluie' : 'clair';
+    else if (s === 2) next = r.chance(0.16) ? 'canicule' : r.chance(0.1) ? 'pluie' : 'clair';
+    else next = r.chance(0.28) ? 'pluie' : 'clair';
+
+    const before = this.weather?.id ?? 'clair';
+    this.weather = { id: next, intensity: 0.5 + r.float(0, 0.5) };
+    if (next !== before && next !== 'clair' && this.canBeat('meteo', 'jour', 2)) {
+      const textes = {
+        pluie: 'Il pleut sur le quartier. Les fenêtres se ferment une à une.',
+        neige: 'Il neige. Même le chat du rez-de-chaussée est rentré.',
+        canicule: 'Canicule. Tout l\'immeuble vit volets mi-clos.',
+      };
+      this.beat({
+        kind: 'meteo.change', text: textes[next],
+        tone: TONE.QUOTIDIEN, weight: 0.3, actors: [], apartment: null,
+      });
+    }
+    // La météo se sent : la canicule use, la pluie enferme.
+    if (next === 'canicule') {
+      for (const p of this.livingPeople()) {
+        p.needs.add('confort', -5);
+        p.stress = Math.min(100, p.stress + 2);
+      }
+    } else if (next === 'pluie' || next === 'neige') {
+      for (const p of this.livingPeople()) p.needs.add('plaisir', -2);
+    }
+  }
+
   daily() {
+    this.weatherStep();
     const rng = this.rng;
     for (const p of this.livingPeople()) {
       ageOneDay(this, p);

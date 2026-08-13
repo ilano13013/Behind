@@ -675,6 +675,182 @@ export const POSES = {
     };
   },
 
+  pleure: (t) => {
+    // Le visage dans les mains, les épaules qui tressautent. La tristesse
+    // du canal `browInner` fait le reste.
+    const sob = Math.abs(Math.sin(t * 5.5));
+    return {
+      lean: 0.22,
+      headTilt: 0.32,
+      // Mêmes angles résolus que « manger » et « téléphoner » : c'est la
+      // seule façon d'amener réellement les paumes sur le visage.
+      armL: -2.88, armR: 2.88,
+      elbowL: 4.05, elbowR: -4.05,
+      handL: 0.55, handR: 0.55,
+      squash: 0.97 + sob * 0.02,
+      bob: -sob * 0.004,
+      eye: 0.1,
+      mouth: -0.8,
+    };
+  },
+
+  rit: (t) => {
+    // Tête en arrière, une main sur le ventre, et tout le corps rebondit.
+    const ha = Math.abs(Math.sin(t * 7));
+    return {
+      lean: -0.12,
+      headTilt: -0.24,
+      armR: 0.8, elbowR: -2.2,
+      armL: -0.7 + ha * 0.15, elbowL: 0.6,
+      mouth: 1, mouthOpen: 0.7 + ha * 0.25,
+      brow: 0.8,
+      squash: 1 + ha * 0.025,
+      bob: ha * 0.01,
+      handL: 0.8, handR: 0.2,
+    };
+  },
+
+  peur: (t) => {
+    // Les mains devant, le buste en arrière, et ce tremblement qu'on ne
+    // contrôle pas.
+    const tremble = Math.sin(t * 16);
+    return {
+      lean: -0.18,
+      headTilt: -0.06,
+      armL: -2.6 + tremble * 0.05, armR: 2.6 - tremble * 0.05,
+      elbowL: 3.5, elbowR: -3.5,
+      handL: 1, handR: 1,
+      legL: -0.08, legR: 0.08,
+      twist: tremble * 0.03,
+      eye: 1,
+    };
+  },
+
+  bagarre: (t) => {
+    // Garde de boxeur : poings fermés, petit rebond, jab de temps en temps.
+    const bounce = Math.abs(Math.sin(t * 6));
+    const jab = Math.max(0, Math.sin(t * 2.2) - 0.85) / 0.15;
+    return {
+      lean: 0.14,
+      armL: -2.7 - jab * 0.35, armR: 2.55,
+      elbowL: 3.8 - jab * 1.9, elbowR: -3.7,
+      handL: 0, handR: 0,
+      legL: 0.14, legR: -0.14,
+      bob: bounce * 0.014,
+      twist: -jab * 0.2,
+      squash: 1 + bounce * 0.01,
+    };
+  },
+
+  fume: (t) => {
+    // La cigarette monte, une bouffée, et le bras retombe le long du corps.
+    const cycle = (t * 0.28) % 1;
+    const up = Math.sin(Math.min(1, cycle * 1.5) * Math.PI);
+    return {
+      armR: 0.55 + up * 2.35,
+      elbowR: -0.9 - up * 3.2,
+      armL: -0.5, elbowL: 0.3,
+      lean: 0.05,
+      headTilt: 0.04 - up * 0.08,
+      handR: 0.05, handL: 0.15,
+      mouthOpen: up > 0.85 ? 0.2 : 0.05,
+      headTurn: 0.25,
+    };
+  },
+
+  scroll: (t) => ({
+    // Les deux mains à hauteur du ventre, la tête penchée dessus : tout le
+    // monde reconnaît la posture avant même de voir le téléphone.
+    armL: -0.6, armR: 0.6,
+    elbowL: 2.15 + Math.sin(t * 9) * 0.03, elbowR: -2.15,
+    lean: 0.1,
+    headTilt: 0.34,
+    handL: 0.1, handR: 0.1,
+    eye: 0.75,
+  }),
+
+  porte: (t) => ({
+    // Un carton dans les bras : les avant-bras à l'horizontale, le dos qui
+    // compense en arrière.
+    armL: -0.85, armR: 0.85,
+    elbowL: 2.1, elbowR: -2.1,
+    lean: -0.08,
+    handL: 0.05, handR: 0.05,
+    squash: 0.985 + Math.sin(t * 1.4) * 0.006,
+  }),
+
+  courses: (t) => ({
+    // Deux sacs pleins : les bras tirés vers le bas, les épaules remontées,
+    // les doigts crochetés sur les anses.
+    armL: -0.12, armR: 0.12,
+    elbowL: 0.06, elbowR: -0.06,
+    handL: 0, handR: 0,
+    lean: 0.09,
+    squash: 0.975,
+    headTilt: 0.06,
+  }),
+
+  assis_sol: (t) => ({
+    // Par terre, en tailleur — la position des enfants devant leurs jouets.
+    sit: 1,
+    bob: -0.055,
+    lean: 0.12,
+    armL: -0.5, armR: 0.7 + Math.sin(t * 2.4) * 0.2,
+    elbowL: 0.9, elbowR: -1.2 - Math.sin(t * 2.4) * 0.3,
+    handL: 0.6, handR: 0.6,
+    headTilt: 0.14,
+  }),
+
+  allonge: (t) => ({
+    // Allongé mais pas endormi : la sieste du dimanche.
+    lie: 1,
+    squash: 1 + Math.sin(t * 1.1) * 0.02,
+  }),
+
+  reveil: (t, person, rig) => {
+    // Assis au bord du lit, les bras au ciel, un bâillement.
+    const k = Math.min(1, rig.poseAge / 1.2);
+    return {
+      sit: 1,
+      armL: -0.4 - k * 2.3, armR: 0.4 + k * 2.3,
+      elbowL: 0.5 - k * 0.3, elbowR: -0.5 + k * 0.3,
+      lean: 0.12 - k * 0.12,
+      headTilt: 0.18 - k * 0.1,
+      mouthOpen: k > 0.6 ? 0.8 : 0.1,
+      eye: 0.3 + k * 0.4,
+      squash: 1 + k * 0.02,
+      handL: 0.7, handR: 0.7,
+    };
+  },
+
+  habille: (t) => {
+    // On enfile un pantalon : une jambe levée, les bras qui tirent, et cet
+    // équilibre incertain que tout le monde connaît.
+    const hop = Math.abs(Math.sin(t * 3.2));
+    return {
+      legL: 0.55, legR: -0.06,
+      lean: 0.2,
+      armL: -0.9, armR: 0.9,
+      elbowL: 1.7, elbowR: -1.7,
+      handL: 0.05, handR: 0.05,
+      bob: hop * 0.008,
+      twist: hop * 0.04,
+      headTilt: 0.22,
+    };
+  },
+
+  conduit: (t) => ({
+    // Les mains sur le volant, les yeux droit devant, les secousses de la
+    // route. Personne ne conduit dans son salon, mais la planche la demande
+    // et la fenêtre du rez-de-chaussée donne sur la rue.
+    sit: 1,
+    armL: -0.55, armR: 0.55,
+    elbowL: 1.9 + Math.sin(t * 8) * 0.02, elbowR: -1.9 + Math.sin(t * 7) * 0.02,
+    lean: 0.06,
+    handL: 0, handR: 0,
+    bob: Math.sin(t * 11) * 0.0025,
+  }),
+
   releve: (t, person, rig) => {
     // Se relever : on pousse sur les mains, le buste part en avant, puis on
     // se déplie. La pose dure le temps que le lissage mette à la quitter.
@@ -695,6 +871,7 @@ export const POSES = {
 export function poseFor(person) {
   if (person.walking) return person.running ? 'courir' : 'marche';
   const id = person.action?.id ?? 'rien';
+  const mood = person.mood ?? 60;
   switch (id) {
     case 'dormir':
     case 'soigner': return 'couche';
@@ -703,19 +880,25 @@ export function poseFor(person) {
     case 'cuisiner': return 'cuisine';
     case 'douche': return 'douche';
     case 'menage': return 'menage';
-    case 'tv': return 'avachi';
+    // Épuisé devant la télé, on finit allongé sur le canapé.
+    case 'tv': return (person.needs?.get?.('energie') ?? 70) < 28 ? 'allonge' : 'avachi';
+    // On n'écoute pas tous la musique pareil : les expansifs dansent,
+    // les autres hochent la tête, casque sur les oreilles.
     case 'musique':
-    case 'fete':
+      return (person.personality?.get?.('extraversion') ?? 0.5) > 0.45 ? 'danse' : 'assis';
+    case 'fete': return person.id % 3 === 0 ? 'rit' : 'danse';
     case 'betise': return 'danse';
-    case 'jeu': return 'joue';
+    case 'jeu': return person.age < 12 ? 'assis_sol' : 'joue';
     case 'lire': return 'lecture';
     case 'sport': return 'sport';
     case 'bricoler': return 'bricole';
     case 'teletravail':
     case 'chercher_emploi': return 'bureau';
-    case 'telephoner': return 'telephone';
+    // Un appel sur deux se passe l'écran sous le nez, pas à l'oreille.
+    case 'telephoner': return person.id % 2 === 0 ? 'scroll' : 'telephone';
     case 'espionner': return 'fenetre';
-    case 'ruminer': return 'reflechit';
+    // Ruminer devient pleurer quand le moral est vraiment au fond.
+    case 'ruminer': return mood < 22 ? 'pleure' : 'reflechit';
     case 'boire': return 'boit';
     case 'visiter': return 'discute';
     case 'reconcilier':
@@ -723,7 +906,12 @@ export function poseFor(person) {
     case 'flirter': return 'embrasse';
     case 'confronter':
     case 'plaindre': return 'colere';
-    default: return 'idle';
+    default:
+      // Sans occupation : la peur si le stress déborde, la clope si le
+      // corps la réclame, sinon le repos.
+      if ((person.stress ?? 20) > 85) return 'peur';
+      if ((person.addiction ?? 0) > 0.5 && person.age >= 18) return 'fume';
+      return 'idle';
   }
 }
 

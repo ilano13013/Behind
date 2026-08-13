@@ -7,7 +7,7 @@ import { World } from './sim/world.js';
 import { TICKS_PER_DAY } from './core/clock.js';
 import { TONE } from './core/events.js';
 import {
-  FacadeLayout, buildStaticLayer, drawFacade, syncWindows,
+  FacadeLayout, buildStaticLayer, drawFacade, syncWindows, drawWeather,
 } from './render/facade.js';
 import { drawInterior, updatePositions } from './render/apartment.js';
 import {
@@ -432,6 +432,7 @@ function render(dt) {
     facadeTransform(ctx, from, to, u);
   }
   drawFacade(ctx, world, layout, clock, cache);
+  drawWeather(ctx, world.weather, W, H, performance.now() / 1000);
 
   // Surlignage de la fenêtre survolée : discret, juste un liseré.
   if (hoverApt && u === 0) {
