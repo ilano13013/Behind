@@ -7321,7 +7321,7 @@ function appearance(person) {
     nose: hashPick(id * 23 + 11, 4),      // 0 long, 1 busqué, 2 rond, 3 retroussé
     ears: hashPick(id * 41 + 9, 3),
     glasses: hashPick(id * 17 + 2, 100) < 18,
-    shades: hashPick(id * 53 + 6, 100) < 14 && person.age > 14,
+    shades: hashPick(id * 53 + 6, 100) < 8 && person.age > 14,
     cap: hashPick(id * 61 + 3, 100) < 22 && person.age < 62,
     beard: person.gender === 'm' && person.age > 22 && hashPick(id * 19 + 7, 100) < 42,
     stubble: person.gender === 'm' && person.age > 19 && hashPick(id * 71 + 5, 100) < 45,
@@ -7557,13 +7557,29 @@ function drawArm(ctx, sx, sy, shoulder, elbow, open, B, sleeve, skin, outline, l
     capsulePath(ctx, ex, ey, wx, wy, 4.3 * B, 3.5 * B);
   }, skin, outline);
 
-  // La manche : elle s'arrête au coude (courte) ou au poignet (longue).
+  // La manche est peinte À L'INTÉRIEUR du bras, pas posée dessus : sinon
+  // son contour dessine une boucle en travers de l'épaule et du torse.
   const endX = longSleeve ? ex + (wx - ex) * 0.82 : sx + (ex - sx) * 0.62;
   const endY = longSleeve ? ey + (wy - ey) * 0.82 : sy + (ey - sy) * 0.62;
-  const endW = longSleeve ? 3.9 * B : 4.9 * B;
-  solid(ctx, () => {
-    capsulePath(ctx, sx, sy, endX, endY, 5.9 * B, endW);
-  }, sleeve, outline, LINE * 1.5);
+  ctx.save();
+  ctx.beginPath();
+  capsulePath(ctx, sx, sy, ex, ey, 5.2 * B, 4.3 * B);
+  capsulePath(ctx, ex, ey, wx, wy, 4.3 * B, 3.5 * B);
+  ctx.clip();
+  ctx.beginPath();
+  capsulePath(ctx, sx - 2, sy - 2, endX, endY, 7 * B, 5.4 * B);
+  ctx.fillStyle = sleeve;
+  ctx.fill();
+  ctx.restore();
+  // Le bord de manche : une seule ligne en travers du bras.
+  if (outline) {
+    const a = Math.atan2(endY - sy, endX - sx);
+    ctx.beginPath();
+    ctx.moveTo(endX - Math.sin(a) * 4.4 * B, endY + Math.cos(a) * 4.4 * B);
+    ctx.lineTo(endX + Math.sin(a) * 4.4 * B, endY - Math.cos(a) * 4.4 * B);
+    ink(ctx, LINE * 0.85);
+    ctx.stroke();
+  }
 
   drawHand(ctx, wx, wy, wristA + Math.PI, open, skin, 4.3 * B, outline);
 }
@@ -7696,14 +7712,13 @@ function drawCharacter(ctx, person, x, y, h, o = {}) {
     // Ombre portée : un seul aplat, côté opposé à la lumière.
     ctx.save();
     ctx.clip();
-    ctx.fillStyle = rgba(shade(look.top, -0.45), 0.3);
-    ctx.beginPath();
-    ctx.moveTo(torsoW * 0.16, shoulderY - 8);
-    ctx.lineTo(torsoW * 1.2, shoulderY - 8);
-    ctx.lineTo(torsoW * 1.2, hemY + 8);
-    ctx.lineTo(torsoW * 0.34, hemY + 8);
-    ctx.closePath();
-    ctx.fill();
+    // Un dégradé plutôt qu'un aplat : une bande nette au milieu du torse
+    // ressemblait à une rayure peinte, pas à une ombre.
+    const grad = ctx.createLinearGradient(-torsoW * 0.2, 0, torsoW * 0.7, 0);
+    grad.addColorStop(0, rgba(shade(look.top, -0.45), 0));
+    grad.addColorStop(1, rgba(shade(look.top, -0.45), 0.42));
+    ctx.fillStyle = grad;
+    ctx.fillRect(-torsoW, shoulderY - 10, torsoW * 2.2, hemY - shoulderY + 20);
     ctx.restore();
 
     // Col : c'est lui qui transforme un torse coloré en vêtement.
@@ -7817,11 +7832,11 @@ function drawHead(ctx, person, look, c, r, t, silhouette) {
   // --- Sourcils : le premier outil d'expression ---
   ctx.save();
   ctx.strokeStyle = INK;
-  ctx.lineWidth = r * 0.16;
+  ctx.lineWidth = r * 0.125;
   ctx.lineCap = 'round';
   for (const side of [-1, 1]) {
     const bx = tx + side * eyeDx;
-    const by = eyeY - r * 0.44 - c.brow * r * 0.13;
+    const by = eyeY - r * 0.52 - c.brow * r * 0.13;
     const inner = c.browInner * r * 0.2;
     ctx.beginPath();
     ctx.moveTo(bx - side * r * 0.24, by + inner);
@@ -7832,7 +7847,7 @@ function drawHead(ctx, person, look, c, r, t, silhouette) {
 
   // --- Yeux ---
   if (look.shades) {
-    drawShades(ctx, r, tx, eyeY);
+    drawShades(ctx, look, r, tx, eyeY);
   } else {
     for (const side of [-1, 1]) {
       const ex = tx + side * eyeDx;
@@ -7865,28 +7880,31 @@ function drawHead(ctx, person, look, c, r, t, silhouette) {
     if (look.glasses) drawGlasses(ctx, r, tx, eyeY, eyeDx);
   }
 
-  drawNose(ctx, look, r, tx, eyeY);
-  drawMouth(ctx, look, c, r, tx);
-
-  if (look.stubble && !look.beard) {
+  // Pilosité AVANT le nez et la bouche : peinte après, la barbe recouvrait
+  // la bouche et le visage n'avait plus d'expression.
+  if (look.beard) {
+    // Un collier qui suit la mâchoire et s'arrête sous la bouche : taillée
+    // plus haut, la barbe avalait la bouche et le visage devenait un masque.
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.88, r * 0.02);
+    ctx.quadraticCurveTo(-r * 0.8, r * 1.2, 0, r * 1.24);
+    ctx.quadraticCurveTo(r * 0.8, r * 1.2, r * 0.88, r * 0.02);
+    ctx.quadraticCurveTo(r * 0.66, r * 0.66, 0, r * 0.74);
+    ctx.quadraticCurveTo(-r * 0.66, r * 0.66, -r * 0.88, r * 0.02);
+    ctx.closePath();
+    paint(ctx, look.hair, true, LINE * 0.8);
+  } else if (look.stubble) {
     ctx.save();
-    ctx.globalAlpha = 0.22;
+    ctx.globalAlpha = 0.2;
     ctx.fillStyle = look.hair;
     ctx.beginPath();
-    ctx.ellipse(tx * 0.5, r * 0.6, r * 0.72, r * 0.42, 0, 0, Math.PI);
+    ctx.ellipse(tx * 0.5, r * 0.62, r * 0.7, r * 0.4, 0, 0, Math.PI);
     ctx.fill();
     ctx.restore();
   }
-  if (look.beard) {
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.8, r * 0.15);
-    ctx.quadraticCurveTo(-r * 0.6, r * 1.5, 0, r * 1.5);
-    ctx.quadraticCurveTo(r * 0.6, r * 1.5, r * 0.8, r * 0.15);
-    ctx.quadraticCurveTo(r * 0.4, r * 0.6, 0, r * 0.6);
-    ctx.quadraticCurveTo(-r * 0.4, r * 0.6, -r * 0.8, r * 0.15);
-    ctx.closePath();
-    paint(ctx, look.hair, true, LINE * 0.8);
-  }
+
+  drawNose(ctx, look, r, tx, eyeY);
+  drawMouth(ctx, look, c, r, tx, look.beard);
 
   drawHair(ctx, look, r, false);
 
@@ -7932,7 +7950,7 @@ function drawNose(ctx, look, r, tx, eyeY) {
   ctx.stroke();
 }
 
-function drawMouth(ctx, look, c, r, tx) {
+function drawMouth(ctx, look, c, r, tx, onBeard = false) {
   const my = r * 0.55;
   const curve = c.mouth;
   const openAmt = Math.max(0, c.mouthOpen);
@@ -7958,19 +7976,28 @@ function drawMouth(ctx, look, c, r, tx) {
     ctx.beginPath();
     ctx.moveTo(tx - w, my - curve * r * 0.14);
     ctx.quadraticCurveTo(tx, my + curve * r * 0.4, tx + w, my - curve * r * 0.14);
-    ink(ctx, r * 0.145);
+    ctx.strokeStyle = onBeard ? rgba('#f0d9c8', 0.9) : INK;
+    ctx.lineWidth = r * 0.145;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
     ctx.stroke();
   }
 }
 
-function drawShades(ctx, r, tx, eyeY) {
+function drawShades(ctx, look, r, tx, eyeY) {
   // Lunettes de soleil : deux verres larges reliés, très présents.
-  ctx.beginPath();
-  roundRect(ctx, tx - r * 0.92, eyeY - r * 0.3, r * 0.78, r * 0.5, r * 0.16);
-  paint(ctx, '#20252e', true, LINE * 0.8);
-  ctx.beginPath();
-  roundRect(ctx, tx + r * 0.14, eyeY - r * 0.3, r * 0.78, r * 0.5, r * 0.16);
-  paint(ctx, '#20252e', true, LINE * 0.8);
+  // Des verres translucides : opaques, ils effaçaient le regard, et avec
+  // une barbe il ne restait plus rien du visage.
+  for (const dx of [-r * 0.92, r * 0.14]) {
+    ctx.beginPath();
+    roundRect(ctx, tx + dx, eyeY - r * 0.28, r * 0.78, r * 0.46, r * 0.15);
+    ctx.fillStyle = rgba(look.skin, 1);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(32,37,46,0.78)';
+    ctx.fill();
+    ink(ctx, LINE * 0.8);
+    ctx.stroke();
+  }
   ctx.beginPath();
   ctx.moveTo(tx - r * 0.14, eyeY - r * 0.16);
   ctx.lineTo(tx + r * 0.14, eyeY - r * 0.16);
@@ -7990,16 +8017,18 @@ function drawShades(ctx, r, tx, eyeY) {
 }
 
 function drawGlasses(ctx, r, tx, eyeY, eyeDx) {
-  ctx.strokeStyle = rgba(INK, 0.85);
-  ctx.lineWidth = r * 0.08;
+  // Des verres fins et resserrés : trop larges, ils se rejoignaient et le
+  // haut du visage devenait une barre noire.
+  ctx.strokeStyle = rgba(INK, 0.8);
+  ctx.lineWidth = r * 0.055;
   for (const side of [-1, 1]) {
     ctx.beginPath();
-    ctx.ellipse(tx + side * eyeDx, eyeY, r * 0.32, r * 0.28, 0, 0, Math.PI * 2);
+    ctx.ellipse(tx + side * eyeDx, eyeY, r * 0.26, r * 0.23, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
   ctx.beginPath();
-  ctx.moveTo(tx - eyeDx + r * 0.32, eyeY);
-  ctx.lineTo(tx + eyeDx - r * 0.32, eyeY);
+  ctx.moveTo(tx - eyeDx + r * 0.26, eyeY);
+  ctx.lineTo(tx + eyeDx - r * 0.26, eyeY);
   ctx.stroke();
 }
 
@@ -8098,43 +8127,101 @@ function drawCap(ctx, look, r, silhouette) {
 
 function drawLying(ctx, person, look, c, t, silhouette) {
   const skin = silhouette ? INK : look.skin;
-  const top = silhouette ? INK : look.top;
-  const bottom = silhouette ? INK : look.bottom;
+  const duvet = silhouette ? INK : PALETTE.fabric[(person.id + 2) % PALETTE.fabric.length];
   const B = look.build;
-  const y = -11;
-  const breathe = (c.squash - 1) * 30;
+  const y = -9;
+  // La respiration soulève la couette, pas le corps entier.
+  const breathe = (c.squash - 1) * 26;
 
-  // Jambes.
-  limb(ctx, 6, y + 1, 34, y + 3, 6 * B, 5 * B, bottom, !silhouette);
-  // Buste.
-  ctx.beginPath();
-  roundRect(ctx, -26, y - 9 * B + breathe, 34, 18 * B, 8);
-  paint(ctx, top, !silhouette);
-  // Bras posé le long du corps.
-  limb(ctx, -14, y + 2, 4, y + 7, 4.4 * B, 3.6 * B, skin, !silhouette);
-  // Tête, de profil sur l'oreiller.
-  ctx.save();
-  ctx.translate(-36, y - 5 + breathe * 0.6);
-  ctx.rotate(-0.15);
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 12.5, 11.5, 0, 0, Math.PI * 2);
-  paint(ctx, skin, !silhouette);
+  // Oreiller, à la tête du lit.
   if (!silhouette) {
-    // Œil fermé, bouche entrouverte : deux traits, et ça dort vraiment.
     ctx.beginPath();
-    ctx.moveTo(-6, -2);
-    ctx.quadraticCurveTo(-3.5, 1.5, -1, -2);
-    ink(ctx, 1.4);
+    roundRect(ctx, -46, y - 9, 22, 12, 5);
+    paint(ctx, '#f4ece0', true, LINE * 0.9);
+  }
+
+  // Jambes sous la couette : deux bosses, pas un rectangle.
+  ctx.beginPath();
+  ctx.moveTo(-24, y + 5);
+  ctx.quadraticCurveTo(-6, y - 9 - breathe, 12, y - 5);
+  ctx.quadraticCurveTo(26, y - 2, 34, y + 1);
+  ctx.quadraticCurveTo(38, y + 6, 30, y + 7);
+  ctx.lineTo(-24, y + 7);
+  ctx.closePath();
+  paint(ctx, duvet, !silhouette);
+
+  if (!silhouette) {
+    // Un pli de couette : c'est ce qui la distingue d'un sac de couchage.
+    ctx.beginPath();
+    ctx.moveTo(-20, y - 2 - breathe * 0.5);
+    ctx.quadraticCurveTo(0, y - 6 - breathe, 20, y - 1);
+    ink(ctx, LINE * 0.7);
+    ctx.stroke();
+    // Le bord replié, côté épaules.
+    ctx.beginPath();
+    ctx.moveTo(-24, y - 1);
+    ctx.quadraticCurveTo(-18, y - 6 - breathe * 0.6, -10, y - 4);
+    ctx.lineTo(-10, y + 1);
+    ctx.lineTo(-24, y + 1);
+    ctx.closePath();
+    paint(ctx, shade(duvet, 0.3), true, LINE * 0.7);
+  }
+
+  // Épaule et bras posés par-dessus la couette.
+  ctx.beginPath();
+  capsulePath(ctx, -26, y - 3, -12, y + 1, 5.5 * B, 4.5 * B);
+  if (silhouette) {
+    ctx.fillStyle = INK;
+    ctx.fill();
+  } else {
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = LINE * 1.7;
+    ctx.stroke();
+    ctx.fillStyle = look.top;
+    ctx.fill();
+  }
+
+  // Tête de profil sur l'oreiller.
+  ctx.save();
+  ctx.translate(-36, y - 9 + breathe * 0.35);
+  ctx.rotate(-0.12);
+  const r = 11.5;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.9, -r * 0.1);
+  ctx.quadraticCurveTo(-r * 0.95, -r * 1.05, 0, -r * 1.05);
+  ctx.quadraticCurveTo(r * 0.98, -r * 1.0, r * 0.92, r * 0.1);
+  ctx.quadraticCurveTo(r * 0.85, r * 0.85, r * 0.2, r * 0.95);
+  ctx.quadraticCurveTo(-r * 0.6, r * 0.95, -r * 0.9, -r * 0.1);
+  ctx.closePath();
+  paint(ctx, skin, !silhouette);
+
+  if (!silhouette) {
+    // Œil fermé, sourcil détendu, bouche entrouverte : trois traits suffisent.
+    ctx.beginPath();
+    ctx.moveTo(r * 0.1, -r * 0.12);
+    ctx.quadraticCurveTo(r * 0.38, r * 0.14, r * 0.62, -r * 0.12);
+    ink(ctx, r * 0.1);
     ctx.stroke();
     ctx.beginPath();
-    ctx.ellipse(-4, 5, 2.2, 1.6 + Math.abs(breathe) * 0.2, 0, 0, Math.PI * 2);
+    ctx.moveTo(r * 0.12, -r * 0.42);
+    ctx.quadraticCurveTo(r * 0.4, -r * 0.55, r * 0.66, -r * 0.4);
+    ink(ctx, r * 0.09);
+    ctx.stroke();
+    // Nez de profil.
+    ctx.beginPath();
+    ctx.moveTo(r * 0.82, -r * 0.16);
+    ctx.quadraticCurveTo(r * 1.05, r * 0.06, r * 0.8, r * 0.16);
+    ink(ctx, r * 0.09);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(r * 0.5, r * 0.48, r * 0.13, r * 0.09 + Math.abs(breathe) * 0.06, 0, 0, Math.PI * 2);
     ctx.fillStyle = '#6d2f2f';
     ctx.fill();
-    // Cheveux ébouriffés.
-    ctx.beginPath();
-    ctx.ellipse(2, -6, 11, 7, -0.25, 0, Math.PI * 2);
-    paint(ctx, look.hair, true, LINE * 0.8);
   }
+  // Cheveux ébouriffés sur l'oreiller.
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.35, -r * 0.62, r * 0.95, r * 0.62, -0.2, 0, Math.PI * 2);
+  paint(ctx, silhouette ? INK : look.hair, !silhouette, LINE * 0.8);
   ctx.restore();
 }
 
@@ -8510,6 +8597,11 @@ function drawInterior(ctx, world, apt, rect, time, opts = {}) {
   drawWalls(S, wallColor, floorColor);
   drawBackWindow(S, world, time);
 
+  // Les meubles secondaires d'abord : ils sont contre le mur, et le
+  // mobilier principal doit pouvoir passer devant. Dessinés après, une
+  // penderie recouvrait le lit.
+  if (detail > 0.35) drawExtras(S);
+
   // Le mobilier suit le plan : chaque bande est dessinée à sa place.
   for (const zone of plan.order) {
     switch (zone) {
@@ -8524,7 +8616,6 @@ function drawInterior(ctx, world, apt, rect, time, opts = {}) {
   }
 
   if (detail > 0.35) {
-    drawExtras(S);
     drawWallDecor(S, occupants);
     drawProps(S, props);
     for (let i = 0; i < apt.plants; i++) {
@@ -8919,11 +9010,21 @@ function drawBathroom(S) {
 }
 
 /** Meubles secondaires : c'est eux qui font qu'un logement a un caractère. */
+/** Les jointures entre deux bandes : le seul espace mural vraiment libre. */
+function seams(plan) {
+  const centres = plan.order.map((z) => plan.zones[z]).sort((a, b) => a - b);
+  const out = [];
+  for (let i = 0; i < centres.length - 1; i++) out.push((centres[i] + centres[i + 1]) / 2);
+  return out;
+}
+
 function drawExtras(S) {
   const { ctx, w, h, U, V, plan } = S;
-  const spots = [0.16, 0.46, 0.78];
+  const spots = seams(plan);
   plan.extras.forEach((kind, i) => {
-    const cx = U(spots[i % spots.length] + plan.jitter[i]);
+    // On répartit sur les jointures, en sautant une sur deux pour ne pas
+    // empiler deux meubles côte à côte.
+    const cx = U(spots[(i * 2 + 1) % spots.length] + plan.jitter[i] * 0.5);
     switch (kind) {
       case 'bibliotheque': {
         const bw = w * 0.09;
@@ -9229,8 +9330,14 @@ function drawPeople(S, occupants, time, dt, detail) {
     const px = U(p.pos.x);
     let py = V + h * 0.02 - depth * h * 0.035;
     let pose;
-    if (p.action?.id === 'dormir' || p.action?.id === 'soigner') {
-      py = V - h * 0.055;
+    // On ne s'allonge qu'une fois arrivé au lit. Sans cette condition, le
+    // dormeur se met à l'horizontale dès la décision et traverse la pièce
+    // en lévitation jusqu'au matelas — ce qui était exactement le cas.
+    const couche = !p.walking
+      && (p.action?.id === 'dormir' || p.action?.id === 'soigner');
+    if (couche) {
+      // Hauteur du matelas : le corps doit poser dessus, pas flotter.
+      py = V - h * 0.072;
       pose = 'couche';
     } else if (p.age < 2) {
       pose = 'bebe';

@@ -98,6 +98,11 @@ export function drawInterior(ctx, world, apt, rect, time, opts = {}) {
   drawWalls(S, wallColor, floorColor);
   drawBackWindow(S, world, time);
 
+  // Les meubles secondaires d'abord : ils sont contre le mur, et le
+  // mobilier principal doit pouvoir passer devant. Dessinés après, une
+  // penderie recouvrait le lit.
+  if (detail > 0.35) drawExtras(S);
+
   // Le mobilier suit le plan : chaque bande est dessinée à sa place.
   for (const zone of plan.order) {
     switch (zone) {
@@ -112,7 +117,6 @@ export function drawInterior(ctx, world, apt, rect, time, opts = {}) {
   }
 
   if (detail > 0.35) {
-    drawExtras(S);
     drawWallDecor(S, occupants);
     drawProps(S, props);
     for (let i = 0; i < apt.plants; i++) {
@@ -507,11 +511,21 @@ function drawBathroom(S) {
 }
 
 /** Meubles secondaires : c'est eux qui font qu'un logement a un caractère. */
+/** Les jointures entre deux bandes : le seul espace mural vraiment libre. */
+function seams(plan) {
+  const centres = plan.order.map((z) => plan.zones[z]).sort((a, b) => a - b);
+  const out = [];
+  for (let i = 0; i < centres.length - 1; i++) out.push((centres[i] + centres[i + 1]) / 2);
+  return out;
+}
+
 function drawExtras(S) {
   const { ctx, w, h, U, V, plan } = S;
-  const spots = [0.16, 0.46, 0.78];
+  const spots = seams(plan);
   plan.extras.forEach((kind, i) => {
-    const cx = U(spots[i % spots.length] + plan.jitter[i]);
+    // On répartit sur les jointures, en sautant une sur deux pour ne pas
+    // empiler deux meubles côte à côte.
+    const cx = U(spots[(i * 2 + 1) % spots.length] + plan.jitter[i] * 0.5);
     switch (kind) {
       case 'bibliotheque': {
         const bw = w * 0.09;
@@ -817,8 +831,14 @@ function drawPeople(S, occupants, time, dt, detail) {
     const px = U(p.pos.x);
     let py = V + h * 0.02 - depth * h * 0.035;
     let pose;
-    if (p.action?.id === 'dormir' || p.action?.id === 'soigner') {
-      py = V - h * 0.055;
+    // On ne s'allonge qu'une fois arrivé au lit. Sans cette condition, le
+    // dormeur se met à l'horizontale dès la décision et traverse la pièce
+    // en lévitation jusqu'au matelas — ce qui était exactement le cas.
+    const couche = !p.walking
+      && (p.action?.id === 'dormir' || p.action?.id === 'soigner');
+    if (couche) {
+      // Hauteur du matelas : le corps doit poser dessus, pas flotter.
+      py = V - h * 0.072;
       pose = 'couche';
     } else if (p.age < 2) {
       pose = 'bebe';
