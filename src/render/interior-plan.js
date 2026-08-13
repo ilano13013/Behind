@@ -99,15 +99,15 @@ export function planFor(apt) {
 export const ARCHETYPE_RULES = [
   // --- 1. L'état du logement prime sur qui l'occupe ---
   ['vide', (o) => !o.length],
-  ['squat', (o, c) => c.dettes > 900 && c.pauvres >= 1],
+  ['squat_alternatif', (o, c) => c.dettes > 900 && c.pauvres >= 1],
   ['en_renovation', (o, c) => c.bricoleurs > 0 && c.desordre > 0.45],
-  ['airbnb', (o, c) => o.length >= 2 && c.arrives < 20 && !c.familles],
+  ['airbnb_meuble', (o, c) => o.length >= 2 && c.arrives < 20 && !c.familles],
 
   // --- 2. Le métier, quand il déborde sur le logement ---
   ['tatoueur', (o, c) => c.job('artiste') && c.tatoues >= 1],
   ['coiffeur', (o, c) => c.job('coiffeur')],
   ['musicien', (o, c) => c.job('musicien')],
-  ['psychologue', (o, c) => c.job('infirmier') && c.calme],
+  ['cabinet_psychologue', (o, c) => c.job('infirmier') && c.calme],
   // Aucun agent de sécurité dans cet immeuble ? Alors c'est la discipline
   // qui fait le militaire, pas la fiche de paie.
   ['militaire', (o, c) => c.job('agent_secu')
@@ -129,9 +129,9 @@ export const ARCHETYPE_RULES = [
   ['ultra_propre', (o, c) => c.organises === o.length && c.rigueur > 0.78],
   ['minimaliste', (o, c) => o.length === 1 && c.rigueur > 0.78 && c.depense < 0.28],
   ['collectionneur', (o, c) => c.has((p) => p.personality.has('tetu')) && c.age > 45],
-  ['rempli_de_plantes', (o, c) => c.plantes >= 3 && c.ouverture > 0.52],
+  ['plantes_partout', (o, c) => c.plantes >= 3 && c.ouverture > 0.52],
   ['aquariums', (o, c) => c.has((p) => p.personality.has('patient') && p.personality.has('discret'))],
-  ['tres_religieux', (o, c) => c.has((p) => p.personality.has('fidele')) && c.age > 52],
+  ['appartement_religieux_oriental', (o, c) => c.has((p) => p.personality.has('fidele')) && c.age > 52],
   ['boheme', (o, c) => c.ouverture > 0.78],
   ['brocante', (o, c) => c.has((p) => p.personality.has('radin')) && c.age > 50],
 
@@ -245,13 +245,13 @@ export function archetypeFor(world, apt, occupants) {
 /** Ce que chaque décor pose dans la pièce, en plus des affaires de chacun. */
 const ARCHETYPE_PROPS = {
   vide: ['drap_meuble', 'cartons'],
-  squat: ['cartons', 'bouteilles', 'clutter'],
+  squat_alternatif: ['cartons', 'bouteilles', 'clutter'],
   en_renovation: ['etabli', 'cartons', 'toiles'],
-  airbnb: ['valises', 'napperon'],
+  airbnb_meuble: ['valises', 'napperon'],
   tatoueur: ['etabli', 'toiles'],
   coiffeur: ['miroir_pro', 'produits'],
   musicien: ['guitare', 'ampli'],
-  psychologue: ['livres', 'divan'],
+  cabinet_psychologue: ['livres', 'divan'],
   militaire: ['cartons', 'halteres'],
   artiste: ['chevalet', 'toiles'],
   bureau_domicile: ['ordinateur', 'imprimante'],
@@ -259,9 +259,9 @@ const ARCHETYPE_PROPS = {
   ultra_propre: ['produits'],
   minimaliste: [],
   collectionneur: ['vitrine', 'livres'],
-  rempli_de_plantes: ['jungle'],
+  plantes_partout: ['jungle'],
   aquariums: ['aquarium'],
-  tres_religieux: ['napperon', 'vitrine'],
+  appartement_religieux_oriental: ['napperon', 'vitrine'],
   boheme: ['tapis_mural', 'guitare', 'jungle'],
   brocante: ['vitrine', 'cartons', 'napperon'],
   fan_de_foot: ['echarpe_club', 'ecran_geant'],

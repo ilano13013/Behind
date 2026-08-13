@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SLOTS } from '../src/render/assets.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ENTRY = 'src/main.js';
@@ -101,28 +102,52 @@ visit(ENTRY, []);
 
 const MIME = { '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
 
+// Au-delà de ça, le fichier unique cesse d'être ouvrable : le base64
+// gonfle d'un tiers, et un navigateur qui reçoit cent mégaoctets de source
+// dans une seule balise <script> ne les analyse pas, il rame.
+const PLAFOND_MO = 24;
+
 function collectAssets() {
   const dir = path.join(root, 'assets');
-  if (!fs.existsSync(dir)) return { entries: [], bytes: 0 };
+  if (!fs.existsSync(dir)) return { entries: [], bytes: 0, ecartes: [] };
   const entries = [];
+  const ecartes = [];
+  const manifeste = [];   // tout ce qui est livré, embarqué ou non
   let bytes = 0;
-  for (const sub of fs.readdirSync(dir)) {
-    const subdir = path.join(dir, sub);
-    if (!fs.statSync(subdir).isDirectory()) continue;
-    for (const f of fs.readdirSync(subdir)) {
-      const ext = path.extname(f).toLowerCase();
-      if (!MIME[ext]) continue;
-      const buf = fs.readFileSync(path.join(subdir, f));
-      bytes += buf.length;
-      // L'identifiant d'emplacement, tel que assets.js le construit :
-      // « decors/gamer.png » → « decor/gamer ».
-      const famille = { decors: 'decor', ambiances: 'ambiance', portraits: 'portrait',
-        commerces: 'commerce', batiment: 'batiment' }[sub] ?? sub;
-      entries.push([`${famille}/${path.basename(f, ext)}`,
-        `data:${MIME[ext]};base64,${buf.toString('base64')}`]);
+
+  // On parcourt le CATALOGUE, pas le dossier — pour deux raisons. La
+  // première : le catalogue dit déjà où vit chaque emplacement, et
+  // redéduire la correspondance dossier → famille avait rendu deux
+  // familles entières invisibles au build, sans la moindre erreur.
+  //
+  // La seconde compte plus. Quand ça ne rentre pas, il faut choisir QUOI
+  // écarter, et l'ordre alphabétique des dossiers est le pire arbitre
+  // possible. Cet ordre-ci est un ordre de valeur au mégaoctet : un décor
+  // change une pièce entière pour 200 ko, une planche de personnage change
+  // un habitant pour dix fois plus.
+  const RANG = { decor: 0, ambiance: 1, commerce: 2, batiment: 3, expression: 4, portrait: 5, perso: 6 };
+  const catalogue = [...SLOTS].sort(
+    (a, b) => (RANG[a.id.split('/')[0]] ?? 9) - (RANG[b.id.split('/')[0]] ?? 9));
+
+  for (const s of catalogue) {
+    let trouve = null;
+    for (const ext of Object.keys(MIME)) {
+      const f = path.join(dir, s.file.replace(/\.png$/, ext));
+      if (fs.existsSync(f)) { trouve = { f, ext }; break; }
     }
+    if (!trouve) continue;
+    const buf = fs.readFileSync(trouve.f);
+    manifeste.push({ id: s.id, file: rel(trouve.f).replace(/^assets\//, '') });
+
+    // Les planches de personnages ne rentrent pas toutes, et le dire ici
+    // est plus honnête que de fabriquer un behind.html de trois cents
+    // mégaoctets que personne n'ouvrira. Le jeu servi depuis le dossier,
+    // lui, les a toutes.
+    if (bytes + buf.length > PLAFOND_MO * 1048576) { ecartes.push(s.id); continue; }
+    bytes += buf.length;
+    entries.push([s.id, `data:${MIME[trouve.ext]};base64,${buf.toString('base64')}`]);
   }
-  return { entries, bytes };
+  return { entries, bytes, ecartes, manifeste };
 }
 
 const assets = collectAssets();
@@ -133,15 +158,11 @@ const assets = collectAssets();
 {
   const dir = path.join(root, 'assets');
   if (fs.existsSync(dir)) {
-    const liste = assets.entries.map(([id]) => {
-      const famille = id.split('/')[0];
-      const sub = { decor: 'decors', ambiance: 'ambiances', portrait: 'portraits',
-        commerce: 'commerces', batiment: 'batiment' }[famille] ?? famille;
-      const base = id.split('/').slice(1).join('/');
-      const ext = fs.existsSync(path.join(dir, sub, `${base}.webp`)) ? '.webp' : '.png';
-      return { id, file: `${sub}/${base}${ext}` };
-    });
-    fs.writeFileSync(path.join(dir, 'manifest.json'), `${JSON.stringify(liste, null, 2)}\n`);
+    // Le manifeste liste TOUT ce qui est livré, y compris ce que le
+    // fichier unique a dû écarter : c'est la version servie depuis le
+    // dossier qui le lit, et elle, elle a la place.
+    fs.writeFileSync(path.join(dir, 'manifest.json'),
+      `${JSON.stringify(assets.manifeste, null, 2)}\n`);
   }
 }
 
@@ -223,4 +244,14 @@ console.log(`  ${order.length} modules assemblés, CSS et icônes compris`);
 console.log(assets.entries.length
   ? `  ${assets.entries.length} images embarquées — ${ko(assets.bytes)} avant base64`
   : '  aucune image dans assets/ : le jeu tourne sur son dessin procédural');
+if (assets.ecartes.length) {
+  const familles = new Map();
+  for (const id of assets.ecartes) {
+    const f = id.split('/')[0];
+    familles.set(f, (familles.get(f) ?? 0) + 1);
+  }
+  console.log(`  ${assets.ecartes.length} images écartées — le fichier unique plafonne à ${PLAFOND_MO} Mo`);
+  for (const [f, n] of familles) console.log(`    · ${n} en ${f}/`);
+  console.log('    elles restent dans assets/ : la version servie (npm start) les a toutes.');
+}
 console.log(`  ordre d'évaluation : ${order[0]} → … → ${order[order.length - 1]}\n`);

@@ -174,7 +174,9 @@ de la solitude et du stress.
 
 ## Direction artistique
 
-Animation 2D dessinée entièrement au canvas, sans une seule image importée.
+Animation 2D. Tout est dessiné au canvas, forme par forme — et tout peut
+être remplacé par de vrais dessins, habitants compris : `assets/` est la
+prise, et le code n'est que ce qui tient les emplacements vides.
 Couleurs chaudes de quartier populaire — ocres, terres cuites, verts fanés,
 bleus de nuit.
 
@@ -263,13 +265,15 @@ npm run assets               ce qui est là, ce qui manque
 npm run build                embarque tout en base64 dans behind.html
 ```
 
-**Deux cent cinquante et un emplacements**, en cinq familles :
+**Six cent cinquante et un emplacements**, en sept familles :
 
 | Famille | Combien | Ce que ça remplace |
 |---|---|---|
-| `decors/` | **40** | Tout l'intérieur d'un appartement, par type d'habitant |
-| `ambiances/` | **25** | Le ciel et le quartier derrière l'immeuble |
+| `personnages/` | **360** | Les habitants eux-mêmes : 6 gabarits × 60 animations |
 | `portraits/` | **170** | Le visage d'un habitant dans sa fiche |
+| `decors/` | **40** | Tout l'intérieur d'un appartement, par type d'habitant |
+| `expressions/` | **40** | Un gros plan de visage, pour l'interface |
+| `ambiances/` | **25** | Le ciel et le quartier derrière l'immeuble |
 | `commerces/` | **10** | Le rez-de-chaussée, où l'on peut entrer |
 | `batiment/` | **6** | Un calque d'usure, selon l'âge de l'immeuble |
 
@@ -284,11 +288,22 @@ Le cahier des charges complet — tailles, cadrages, et la ligne de sol à
 86 % de la hauteur sur laquelle les habitants posent les pieds — est dans
 `assets/README.md`.
 
-Ce qui ne peut PAS être remplacé par une image : les habitants **dans**
-l'appartement. Ils marchent, s'assoient, vieillissent, changent de tenue
-selon la saison, portent leurs expressions, et il y en a cent trente qui
-naissent et meurent pendant la partie. Le compromis est celui d'un film
-d'animation : **décor peint, personnages animés.**
+**Les habitants aussi sont des images.** Une planche livrée pour un
+gabarit et une animation remplace le pantin, telle quelle, sans que le jeu
+la retouche — pas de teinte, pas de recoloriage de tenue. Une planche est
+une bande horizontale de cases de 256 × 384, personnage centré, **pieds sur
+le bord du bas**, fond transparent.
+
+Le dessin par code reste, et il doit rester : c'est lui qui tient les
+gabarits pas encore livrés, sans un raccord visible. Livrez donc par
+gabarit complet plutôt que par animation.
+
+Une limite honnête : **les 360 planches ne tiendront pas dans
+`behind.html`.** En dessin définitif, c'est plus de cent mégaoctets, et le
+base64 les gonfle d'un tiers. Il y a donc deux distributions — le dossier
+servi (`npm start` ou un hébergement) qui a tout, et le fichier unique qui
+a les décors, les portraits, les ambiances et les habitants dessinés par le
+code. `npm run assets` affiche le total livré et ce qui dépasse.
 
 ### La météo, le calendrier, la lune
 

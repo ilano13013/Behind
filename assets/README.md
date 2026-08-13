@@ -82,13 +82,13 @@ ne serait payée pour n'être jamais vue.
 | Fichier | Qui vit là |
 |---|---|
 | `vide.png` | Personne. Meubles sous des draps, volets mi-clos |
-| `squat.png` | Des gens sans un sou et couverts de dettes |
+| `squat_alternatif.png` | Des gens sans un sou et couverts de dettes |
 | `en_renovation.png` | Un bricoleur et un chantier qui dure |
-| `airbnb.png` | Des inconnus arrivés il y a moins de trois semaines |
+| `airbnb_meuble.png` | Des inconnus arrivés il y a moins de trois semaines |
 | `tatoueur.png` | Un artiste tatoué : table, flashs au mur, autoclave |
 | `coiffeur.png` | Salon improvisé : bac, fauteuil, miroir professionnel |
 | `musicien.png` | Instruments, ampli, mousse acoustique posée de travers |
-| `psychologue.png` | Cabinet à domicile : divan, bibliothèque, lumière douce |
+| `cabinet_psychologue.png` | Cabinet à domicile : divan, bibliothèque, lumière douce |
 | `militaire.png` | Rangé au cordeau, lit au carré, malles |
 | `artiste.png` | Chevalet, toiles retournées, pots de peinture |
 | `bureau_domicile.png` | Bureau sérieux, imprimante, chaise correcte |
@@ -103,9 +103,9 @@ ne serait payée pour n'être jamais vue.
 | `ultra_propre.png` | Rien ne dépasse. Rien du tout |
 | `minimaliste.png` | Trois objets, choisis |
 | `collectionneur.png` | Vitrines, séries complètes, étiquettes |
-| `rempli_de_plantes.png` | Une jungle, et un passage étroit |
+| `plantes_partout.png` | Une jungle, et un passage étroit |
 | `aquariums.png` | Plusieurs bacs, lumière bleue, filtres qui ronronnent |
-| `tres_religieux.png` | Images pieuses, napperons, ordre ancien |
+| `appartement_religieux_oriental.png` | Images pieuses, napperons, ordre ancien |
 | `boheme.png` | Tapis au mur, coussins par terre, tentures |
 | `brocante.png` | Rien n'a été acheté neuf |
 | `fan_de_foot.png` | Écharpes, écran géant, canapé face au match |
