@@ -8,7 +8,7 @@
 import {
   PALETTE, skyColors, ambientLight, shade, rgba, mixHex, pickStable,
 } from './palette.js';
-import { appearance, roundRect } from './character.js';
+import { roundRect } from './ink.js';
 import { occupantsOf } from './apartment.js';
 import { SPECIAL_UNITS } from '../sim/building.js';
 

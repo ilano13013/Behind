@@ -14,6 +14,7 @@ import {
   Camera, VIEW, interiorTarget, finaleTarget, lerpRect, facadeTransform, drawVignette, isNarrow,
 } from './render/camera.js';
 import { drawFinale, TOTAL as FINALE_TOTAL } from './render/finale.js';
+import { startle } from './render/anim.js';
 import { Hud, toast } from './ui/hud.js';
 import { ChronicleView } from './ui/chronicle.js';
 import { Inspector } from './ui/inspector.js';
@@ -84,6 +85,13 @@ function start() {
   world.bus.on('beat', (b) => {
     // On ne signale que le très rare : sinon plus rien n'est rare.
     if (b.tone === TONE.GRAVE && b.weight >= 0.9) toast(b.text);
+    // Le visage réagit à ce qui vient d'arriver. Une expression de surprise
+    // ne peut pas naître de l'état intérieur : il faut que le monde le dise.
+    const reaction = b.tone === TONE.GRAVE ? 'choque'
+      : b.tone === TONE.TENDU ? 'effraye'
+        : b.tone === TONE.DROLE ? 'surpris' : null;
+    if (!reaction || b.weight < 0.4) return;
+    for (const id of b.actors ?? []) startle(world.people.get(id), reaction, 4);
   });
 
   resize();

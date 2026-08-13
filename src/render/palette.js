@@ -44,10 +44,20 @@ export const PALETTE = {
   screen: '#2a3440',
 
   // Peau et cheveux : un immeuble, pas un catalogue.
-  skin: ['#f0c9a0', '#e0aa7e', '#c68a5e', '#a3663f', '#7d4a2b', '#5c3620', '#f6dcc0', '#d69a72'],
-  hair: ['#2b2118', '#4a3226', '#6d4a2f', '#8f6b3f', '#c9a45e', '#a8a29c', '#d8d4ce', '#7a2f28', '#3a3f4a'],
-  clothes: ['#b5563f', '#3f6b7a', '#6a7a3f', '#8a5a8f', '#c48a3f', '#4a5a7a', '#a3453f', '#5f7a5a',
-    '#d0745a', '#7a5f9c', '#3f7a6a', '#9c6f3f'],
+  skin: ['#f6dcc0', '#f0c9a0', '#e6b98c', '#d69a72', '#c68a5e', '#b0764c', '#a3663f',
+    '#8a5734', '#7d4a2b', '#664026', '#5c3620', '#48291a'],
+  hair: ['#1f1912', '#2b2118', '#3a2a1e', '#4a3226', '#6d4a2f', '#8f6b3f', '#b98f4e',
+    '#c9a45e', '#dcc084', '#7a2f28', '#a34a35', '#3a3f4a', '#a8a29c', '#d8d4ce', '#bdb7ae'],
+
+  // Vêtements : des teintes franches, contrastées, jamais délavées. La règle
+  // de la charte — couleurs riches — se joue ici et nulle part ailleurs.
+  clothes: ['#c0503a', '#e07a3c', '#e8b13f', '#7fa03c', '#3f8a6e', '#3d7f9c', '#3a5a94',
+    '#6a4f9c', '#a8407a', '#d4685f', '#2f6f66', '#b8763a', '#8a3f4a', '#4f7a4a',
+    '#e3a04f', '#5f6f8c', '#9c4f2f', '#7a8a3f'],
+  // Les bas sont plus sourds : sinon la silhouette se coupe en deux.
+  trousers: ['#3a4658', '#2f3a4a', '#5a4a3c', '#46504a', '#6b5340', '#38414f',
+    '#7a6650', '#4a4038', '#5c5f6b', '#8a7a62', '#33455c', '#6a4c42'],
+  leather: ['#3b332c', '#5a4234', '#2f3540', '#7a6250', '#4a3a2e', '#8f8578', '#d9d2c6'],
 
   // Ambiances.
   night: '#131b2b',

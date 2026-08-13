@@ -11,7 +11,7 @@
 // Après ça, la fenêtre reste éteinte pour toujours.
 
 import { PALETTE, rgba, shade, mixHex } from './palette.js';
-import { roundRect } from './character.js';
+import { roundRect } from './ink.js';
 
 export const PHASES = [
   { id: 'noir', dur: 2.6 },      // on ne voit rien, on entend l'immeuble

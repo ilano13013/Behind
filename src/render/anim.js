@@ -108,6 +108,12 @@ export function updateRig(person, poseName, poseFn, t, dt, emo) {
 
   const target = { ...REST, ...poseFn(t, person, rig) };
 
+  // Le sursaut s'épuise tout seul : rien à nettoyer ailleurs.
+  if (person._startle) {
+    person._startle.ttl -= step;
+    if (person._startle.ttl <= 0) person._startle = null;
+  }
+
   // --- Clignements ---
   rig.nextBlink -= step;
   if (rig.nextBlink <= 0) {
@@ -160,6 +166,14 @@ export function updateRig(person, poseName, poseFn, t, dt, emo) {
   return rig.cur;
 }
 
+/**
+ * Les douze expressions de la charte.
+ *
+ * Chacune n'est qu'un jeu de valeurs sur quatre canaux — sourcils, coin
+ * interne du sourcil, courbe de la bouche, ouverture — plus parfois un
+ * mouvement de tête. C'est peu, et c'est justement pour ça que ça marche :
+ * le lissage les enchaîne sans qu'aucune transition soit écrite.
+ */
 function applyEmotion(target, emo, t) {
   switch (emo.kind) {
     case 'colere':
@@ -181,6 +195,7 @@ function applyEmotion(target, emo, t) {
       target.mouth = -0.2;
       target.headTurn += Math.sin(t * 3.5) * 0.18;
       break;
+    case 'content':
     case 'joyeux':
       target.brow = 0.55;
       target.mouth = 1;
@@ -197,10 +212,88 @@ function applyEmotion(target, emo, t) {
       target.mouth = 0.1;
       target.mouthOpen = 0.25 + Math.sin(t * 0.9) * 0.12;
       break;
+    case 'surpris':
+      // Sourcils au plafond, yeux ronds, bouche en O.
+      target.brow = 1;
+      target.browInner = -0.2;
+      target.mouth = 0.1;
+      target.mouthOpen = 0.65;
+      target.headTilt -= 0.06;
+      break;
+    case 'choque':
+      // La surprise, mais en arrière : le buste recule.
+      target.brow = 1;
+      target.browInner = 0.5;
+      target.mouth = -0.3;
+      target.mouthOpen = 0.85;
+      target.lean -= 0.14;
+      target.headTilt -= 0.1;
+      break;
+    case 'effraye':
+      target.brow = 1;
+      target.browInner = 0.9;
+      target.mouth = -0.6;
+      target.mouthOpen = 0.4;
+      target.headTurn += Math.sin(t * 9) * 0.12;
+      target.lean -= 0.08;
+      break;
+    case 'mefiant':
+      // Un sourcil plus haut que l'autre, bouche de travers, regard en biais.
+      target.brow = -0.15;
+      target.browInner = -0.75;
+      target.mouth = -0.15;
+      target.headTurn += 0.3;
+      target.headTilt += 0.05;
+      target.eye = Math.min(target.eye, 0.72);
+      break;
+    case 'reveur':
+      target.brow = 0.4;
+      target.browInner = 0.25;
+      target.mouth = 0.35;
+      target.headTilt += 0.1 + Math.sin(t * 0.5) * 0.05;
+      target.headTurn += Math.sin(t * 0.31) * 0.35;
+      target.eye = Math.min(target.eye, 0.8);
+      break;
+    case 'energique':
+      target.brow = 0.75;
+      target.mouth = 1;
+      target.mouthOpen = 0.5 + Math.sin(t * 6) * 0.2;
+      target.squash *= 1 + Math.sin(t * 6) * 0.012;
+      break;
+    case 'fatigue':
+      // Paupières lourdes, tête qui pique du nez, bâillement de temps en temps.
+      target.brow = 0.2;
+      target.browInner = 0.5;
+      target.mouth = -0.25;
+      target.headTilt += 0.14 + Math.sin(t * 0.6) * 0.06;
+      target.eye = Math.min(target.eye, 0.45);
+      if (Math.sin(t * 0.28) > 0.96) target.mouthOpen = 0.9;
+      break;
     default:
-      target.mouth = 0.15;
+      // Même au repos, une bouche parfaitement droite fait masque. Un
+      // soupçon de courbe suffit à ce que quelqu'un habite le visage.
+      target.mouth = 0.32;
       break;
   }
+}
+
+/**
+ * Sursaut.
+ *
+ * Une expression ne peut pas venir de l'état interne quand la cause est
+ * extérieure : personne ne « devient » surpris tout seul. Le monde signale
+ * donc l'évènement, et le visage le porte quelques secondes.
+ */
+export function startle(person, kind, seconds = 3) {
+  if (!person) return;
+  person._startle = { kind, ttl: seconds, max: seconds };
+}
+
+/** L'expression de sursaut en cours, ou null. */
+export function startleOf(person) {
+  const s = person?._startle;
+  if (!s || s.ttl <= 0) return null;
+  return { kind: s.kind, force: Math.min(1, s.ttl / (s.max * 0.6)) };
 }
 
 /**
@@ -223,12 +316,14 @@ export const POSES = {
       headTilt: -shift * 0.05 + quirk * 0.08,
       headTurn: quirk * 0.3,
       // Les bras s'écartent du corps : collés, ça fait pain d'épices.
-      armL: -0.3 - Math.abs(quirk) * 0.12 + breath * 0.05,
-      armR: 0.3 + Math.abs(quirk) * 0.12 - breath * 0.05,
-      elbowL: 0.22 + quirk * 0.2,
-      elbowR: -0.22 + quirk * 0.2,
-      handL: 0.18 + quirk * 0.16,
-      handR: 0.18 - quirk * 0.16,
+      armL: -0.58 - Math.abs(quirk) * 0.14 + breath * 0.05,
+      armR: 0.58 + Math.abs(quirk) * 0.14 - breath * 0.05,
+      // Coude vers l'extérieur : replié vers l'intérieur, l'avant-bras
+      // ramenait la main devant le bassin et le personnage avait l'air gêné.
+      elbowL: 0.34 + quirk * 0.2,
+      elbowR: -0.34 + quirk * 0.2,
+      handL: 0.34 + quirk * 0.16,
+      handR: 0.34 - quirk * 0.16,
       // Hanche déhanchée : une jambe porte, l'autre se repose.
       legL: quirk > 0 ? 0.1 : 0.02,
       legR: quirk > 0 ? -0.02 : -0.1,
@@ -304,12 +399,15 @@ export const POSES = {
 
   mange: (t) => {
     // La fourchette monte à la bouche, redescend, et on mâche.
+    // Les angles ne sont pas au jugé : l'épaule et le coude sont résolus
+    // pour que le poignet arrive DEVANT LA BOUCHE. Réglés à l'estime, le
+    // bras partait sur le côté et l'habitant mangeait dans le vide.
     const cycle = (t * 0.9) % 1;
     const up = Math.sin(Math.min(1, cycle * 1.6) * Math.PI);
     return {
       sit: 1,
-      armR: 0.45 + up * 0.75,
-      elbowR: -0.7 - up * 1.1,
+      armR: 0.5 + up * 2.35,
+      elbowR: -0.9 - up * 3.2,
       armL: -0.35,
       elbowL: 0.7,
       lean: 0.1 - up * 0.05,
@@ -415,8 +513,8 @@ export const POSES = {
   telephone: (t) => ({
     // Une main à l'oreille, l'autre qui gesticule : personne ne téléphone
     // sans faire de gestes.
-    armR: 1.95,
-    elbowR: -1.75,
+    armR: 2.95,
+    elbowR: -4.15,
     armL: -0.35 + Math.sin(t * 2.1) * 0.4,
     elbowL: 0.7 + Math.sin(t * 2.6) * 0.5,
     lean: Math.sin(t * 0.9) * 0.06,
@@ -456,11 +554,146 @@ export const POSES = {
     elbowL: 1.4, elbowR: -1.4,
     headTurn: Math.sin(t * 0.25) * 0.3,
   }),
+
+  courir: (t) => {
+    // La course, ce n'est pas une marche rapide : le buste part en avant,
+    // les coudes se plient, et les deux pieds quittent le sol au passage.
+    const c = t * 13;
+    const swing = Math.sin(c);
+    return {
+      legL: swing * 1.05,
+      legR: -swing * 1.05,
+      armL: -swing * 0.9,
+      armR: swing * 0.9,
+      elbowL: 1.25 + Math.max(0, swing) * 0.35,
+      elbowR: -1.25 - Math.max(0, -swing) * 0.35,
+      bob: 0.02 + Math.abs(Math.cos(c)) * 0.05,
+      lean: 0.24,
+      twist: -swing * 0.2,
+      headTilt: -0.08,
+      handL: 0.05, handR: 0.05,
+      squash: 1 + Math.abs(Math.sin(c)) * 0.03,
+    };
+  },
+
+  ecoute: (t) => {
+    // Écouter, c'est presque ne rien faire — mais pas tout à fait : on
+    // hoche, on se balance très peu, et on regarde l'autre.
+    const nod = Math.sin(t * 1.1);
+    return {
+      lean: 0.04,
+      headTilt: 0.09 + nod * 0.05,
+      headTurn: -0.35,
+      armL: -0.42, armR: 0.42,
+      elbowL: 0.85, elbowR: -0.85,
+      handL: 0.2, handR: 0.2,
+      squash: 1 + Math.sin(t * 1.4) * 0.008,
+    };
+  },
+
+  discute: (t) => {
+    // On parle avec les mains. Deux fréquences décalées, sinon les deux
+    // bras battent la mesure ensemble et ça fait chef d'orchestre.
+    const a = t * 2.6;
+    return {
+      armL: -0.55 + Math.sin(a) * 0.35,
+      armR: 0.6 + Math.sin(a * 1.27 + 0.9) * 0.4,
+      elbowL: 1.0 + Math.sin(a * 1.1 + 0.4) * 0.4,
+      elbowR: -1.05 - Math.sin(a * 0.93) * 0.45,
+      lean: 0.05 + Math.sin(a * 0.5) * 0.03,
+      twist: Math.sin(a * 0.6) * 0.1,
+      headTilt: Math.sin(a * 0.7) * 0.07,
+      headTurn: -0.3,
+      handL: 0.75, handR: 0.85,
+      mouthOpen: 0.25 + Math.sin(t * 12) * 0.2,
+    };
+  },
+
+  embrasse: (t) => {
+    // Penché en avant, un bras qui entoure, l'autre qui hésite.
+    const hover = Math.sin(t * 0.9);
+    return {
+      lean: 0.16 + hover * 0.03,
+      headTilt: 0.13,
+      headTurn: -0.5,
+      armL: -1.35, armR: 0.85 + hover * 0.1,
+      elbowL: 1.5, elbowR: -1.15,
+      handL: 0.35, handR: 0.55,
+      squash: 1 + hover * 0.012,
+      bob: hover * 0.005,
+    };
+  },
+
+  joue: (t) => {
+    // Manette : le buste immobile, les pouces qui s'agitent, et le corps
+    // qui bascule dans le sens de ce qui se passe à l'écran.
+    const twitch = Math.sin(t * 9);
+    return {
+      sit: 1,
+      armL: -0.72, armR: 0.72,
+      elbowL: 1.28 + twitch * 0.06,
+      elbowR: -1.28 - twitch * 0.06,
+      lean: 0.16 + Math.sin(t * 0.7) * 0.06,
+      twist: Math.sin(t * 0.7) * 0.14,
+      headTilt: 0.1,
+      handL: 0.08, handR: 0.08,
+    };
+  },
+
+  reflechit: (t) => {
+    // Une main au menton, le regard qui part sur le côté. C'est la pose
+    // qui dit « il se passe quelque chose là-dedans » sans un mot.
+    const drift = Math.sin(t * 0.4);
+    return {
+      armR: 2.88,
+      elbowR: -4.05,
+      armL: -0.35,
+      elbowL: 1.15,
+      lean: 0.09,
+      headTilt: 0.14 + drift * 0.05,
+      headTurn: 0.4 + drift * 0.25,
+      handR: 0.25, handL: 0.15,
+      squash: 1 + Math.sin(t * 1.2) * 0.007,
+    };
+  },
+
+  boit: (t) => {
+    // Le verre monte, on renverse la tête, on repose. Long cycle : boire
+    // vite, ça se voit, et ce n'est pas la même histoire.
+    const cycle = (t * 0.35) % 1;
+    const up = Math.sin(Math.min(1, cycle * 1.4) * Math.PI);
+    return {
+      sit: 1,
+      armR: 0.5 + up * 2.4,
+      elbowR: -0.9 - up * 3.25,
+      armL: -0.5,
+      elbowL: 0.6,
+      lean: 0.14 - up * 0.04,
+      headTilt: 0.08 - up * 0.22,
+      mouthOpen: up > 0.8 ? 0.35 : 0.05,
+      handR: 0.1, handL: 0.2,
+    };
+  },
+
+  releve: (t, person, rig) => {
+    // Se relever : on pousse sur les mains, le buste part en avant, puis on
+    // se déplie. La pose dure le temps que le lissage mette à la quitter.
+    const k = Math.min(1, rig.poseAge / 0.6);
+    return {
+      sit: 1 - k,
+      lean: 0.35 * (1 - k * 0.7),
+      armL: -1.1 + k * 0.8, armR: 1.1 - k * 0.8,
+      elbowL: 1.2 - k * 0.9, elbowR: -1.2 + k * 0.9,
+      bob: -0.02 * (1 - k),
+      squash: 0.94 + k * 0.06,
+      headTilt: 0.2 - k * 0.2,
+    };
+  },
 };
 
 /** La pose visée pour ce que fait l'habitant en ce moment. */
 export function poseFor(person) {
-  if (person.walking) return 'marche';
+  if (person.walking) return person.running ? 'courir' : 'marche';
   const id = person.action?.id ?? 'rien';
   switch (id) {
     case 'dormir':
@@ -473,9 +706,8 @@ export function poseFor(person) {
     case 'tv': return 'avachi';
     case 'musique':
     case 'fete':
-    case 'invite':
     case 'betise': return 'danse';
-    case 'jeu': return 'assis';
+    case 'jeu': return 'joue';
     case 'lire': return 'lecture';
     case 'sport': return 'sport';
     case 'bricoler': return 'bricole';
@@ -483,8 +715,12 @@ export function poseFor(person) {
     case 'chercher_emploi': return 'bureau';
     case 'telephoner': return 'telephone';
     case 'espionner': return 'fenetre';
-    case 'ruminer':
-    case 'boire': return 'avachi';
+    case 'ruminer': return 'reflechit';
+    case 'boire': return 'boit';
+    case 'visiter': return 'discute';
+    case 'reconcilier':
+    case 'famille_temps': return 'ecoute';
+    case 'flirter': return 'embrasse';
     case 'confronter':
     case 'plaindre': return 'colere';
     default: return 'idle';

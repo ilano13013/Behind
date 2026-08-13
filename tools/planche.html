@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Behind — planche graphique</title>
+<style>
+  body { margin: 0; background: #efe4d2; font: 13px "Trebuchet MS", sans-serif; color: #33261c; }
+  h2 { margin: 18px 0 6px 16px; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; }
+  canvas { display: block; margin: 0 auto 12px; background: #f7efe2; }
+</style>
+</head>
+<body>
+<h2>Visages</h2>
+<canvas id="c4"></canvas>
+<h2>Six habitants, en grand</h2>
+<canvas id="c0"></canvas>
+<h2 id="t1">Habitants de l'immeuble</h2>
+<canvas id="c1"></canvas>
+<h2>Les douze expressions</h2>
+<canvas id="c2"></canvas>
+<h2>Les animations</h2>
+<canvas id="c3"></canvas>
+
+<script type="module">
+import { World } from '../src/sim/world.js';
+import { drawCharacter, emotionOf } from '../src/render/character.js';
+import { appearance, MORPHO, heightFactor } from '../src/render/wardrobe.js';
+import { POSES } from '../src/render/anim.js';
+
+const world = new World({ seed: new URLSearchParams(location.search).get('seed') ?? 'planche' });
+const people = world.livingPeople();
+
+function grid(canvas, cells, cols, cellW, cellH, draw) {
+  const rows = Math.ceil(cells.length / cols);
+  const dpr = 2;
+  canvas.width = cols * cellW * dpr;
+  canvas.height = rows * cellH * dpr;
+  canvas.style.width = `${cols * cellW}px`;
+  canvas.style.height = `${rows * cellH}px`;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.fillStyle = '#f7efe2';
+  ctx.fillRect(0, 0, cols * cellW, rows * cellH);
+  cells.forEach((cell, i) => {
+    const cx = (i % cols) * cellW + cellW / 2;
+    const cy = Math.floor(i / cols) * cellH;
+    ctx.strokeStyle = 'rgba(120,90,60,.18)';
+    ctx.strokeRect((i % cols) * cellW + .5, cy + .5, cellW - 1, cellH - 1);
+    draw(ctx, cell, cx, cy, cellW, cellH);
+  });
+}
+
+const label = (ctx, text, x, y) => {
+  ctx.fillStyle = '#6d5540';
+  ctx.font = '11px "Trebuchet MS", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, x, y);
+};
+
+// 4 — Les visages seuls, très gros. C'est là que tout se joue.
+const visages = people.slice(0, 16);
+grid(document.getElementById('c4'), visages, 8, 130, 150, (ctx, p, cx, cy, w, h) => {
+  ctx.save();
+  // On cadre la tête : le personnage est dessiné très grand, et découpé.
+  ctx.beginPath();
+  ctx.rect(cx - w / 2 + 2, cy + 2, w - 4, h - 22);
+  ctx.clip();
+  const k = 4.6 / heightFactor(p.age);
+  drawCharacter(ctx, p, cx, cy + h * k * 0.957, h * k, { time: 1.2, dt: 1 / 60, pose: 'idle' });
+  ctx.restore();
+  label(ctx, p.name.split(' ')[0], cx, cy + h - 6);
+});
+
+// 0 — Six habitants en grand : c'est à cette taille qu'on voit les défauts.
+const gros = [0, 1, 5, 11, 20, 30].map((i) => people[i]);
+grid(document.getElementById('c0'), gros, 6, 260, 460, (ctx, p, cx, cy, w, h) => {
+  drawCharacter(ctx, p, cx, cy + h - 46, h - 90, { time: 1.2, dt: 1 / 60, pose: 'idle', facing: 1 });
+  label(ctx, `${p.name} · ${p.age} ans`, cx, cy + h - 20);
+});
+
+// 1 — Une trentaine d'habitants tels qu'ils sont.
+const cast = people.slice(0, 40);
+document.getElementById('t1').textContent =
+  `Habitants de l'immeuble (${cast.length} sur ${people.length})`;
+grid(document.getElementById('c1'), cast, 8, 130, 190, (ctx, p, cx, cy, w, h) => {
+  const look = appearance(p);
+  drawCharacter(ctx, p, cx, cy + h - 30, h - 56, { time: 1.2, dt: 1 / 60, pose: 'idle', facing: 1 });
+  label(ctx, `${p.name.split(' ')[0]} · ${p.age} ans`, cx, cy + h - 16);
+  label(ctx, MORPHO[look.morpho].label, cx, cy + h - 4);
+});
+
+// 2 — Les douze expressions sur un même visage.
+const EXPRESSIONS = ['neutre', 'content', 'surpris', 'choque', 'colere', 'triste',
+  'reveur', 'energique', 'mefiant', 'effraye', 'amoureux', 'fatigue'];
+const model = people.find((p) => p.age > 24 && p.age < 50) ?? people[0];
+grid(document.getElementById('c2'), EXPRESSIONS, 6, 130, 180, (ctx, kind, cx, cy, w, h) => {
+  model._startle = { kind, ttl: 99, max: 99 };
+  // On laisse le lissage arriver à destination avant de capturer.
+  for (let i = 0; i < 90; i++) {
+    drawCharacter(ctx, model, -9999, 0, 10, { time: i / 60, dt: 1 / 60, pose: 'idle' });
+  }
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(cx - w / 2 + 2, cy + 2, w - 4, h - 22);
+  ctx.clip();
+  const k = 3.8 / heightFactor(model.age);
+  drawCharacter(ctx, model, cx, cy + h * k * 0.947, h * k, { time: 1.5, dt: 1 / 60, pose: 'idle' });
+  ctx.restore();
+  label(ctx, kind, cx, cy + h - 6);
+  model._startle = null;
+  model._rig = null;
+});
+
+// 3 — Toutes les poses du catalogue.
+const poses = Object.keys(POSES);
+grid(document.getElementById('c3'), poses, 7, 140, 180, (ctx, pose, cx, cy, w, h) => {
+  const p = people[(poses.indexOf(pose) * 7) % people.length];
+  p._rig = null;
+  for (let i = 0; i < 120; i++) {
+    drawCharacter(ctx, p, -9999, 0, 10, { time: i / 60, dt: 1 / 60, pose });
+  }
+  drawCharacter(ctx, p, cx, cy + h - 24, h - 46, { time: 2, dt: 1 / 60, pose });
+  label(ctx, pose, cx, cy + h - 8);
+  p._rig = null;
+});
+
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

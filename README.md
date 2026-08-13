@@ -99,6 +99,7 @@ n'ait été écrite.
 | `src/sim/interactions.js` | ce qui se passe réellement quand deux personnes se retrouvent |
 | `src/sim/lifecycle.js` | vieillir, travailler, aimer, se séparer, tomber malade, mourir |
 | `src/render/anim.js` | le squelette animé : poses, lissage, mouvement secondaire |
+| `src/render/wardrobe.js` | la charte graphique : morphologies, visages, coiffures, tenues |
 
 ### La rancune n'est pas une variable
 
@@ -183,6 +184,53 @@ joli, tout le monde est reconnaissable : mâchoire, nez, oreilles, coupe,
 carrure, col, manches et démarche sont tirés de l'identifiant de l'habitant,
 donc stables pour toute la partie.
 
+### La charte graphique
+
+Les habitants ne sont pas six modèles recolorés. `src/render/wardrobe.js`
+tient un **catalogue de pièces**, et chaque habitant en tire une dans chaque
+rayon :
+
+| Rayon | Variantes |
+|---|---|
+| Morphologies | 6 — enfant, adolescent, homme adulte, femme, mature, senior |
+| Mâchoires | 9 — carrée, en pointe, lourde, ovale, ronde, longue, anguleuse, en galoche, sèche |
+| Yeux | 10 — ronds, en amande, tombants, petits, à cils, rieurs, cernés, maquillés, à paupière lourde, écarquillés |
+| Nez | 9 — droit, busqué, rond, retroussé, épaté, pointu, fort, cassé, en bouton |
+| Bouches | 9, de la pincée aux lèvres pleines |
+| Coiffures | 18 — afro, tresses, dreads, chignon, queue de cheval, banane, mulet, frange, rasé, dégarni… |
+| Pilosité | 8 — collier, barbe pleine, bouc, moustaches, favoris, barbe de trois jours |
+| Hauts | 12 — t-shirt, chemise, col roulé, sweat à capuche, veste, robe, salopette, survêtement, polo, gilet… |
+| Bas | 9 — jean, chino, jogging, short, jupe, pantalon large, costume, legging, bermuda |
+| Chaussures | 8 — baskets, bottines, mocassins, chaussons, talons, sandales, chaussures de chantier, pieds nus |
+| Couvre-chefs | 6 — casquette, bonnet, béret, bob, foulard, chapeau |
+| Motifs | uni, rayures, carreaux, pois |
+| Accessoires | écharpe, boucles, collier, montre, bretelles, cravate, tablier, badge |
+
+Le tirage est stable (il découle de l'identifiant de l'habitant, donc il ne
+change jamais) mais il n'est **pas aveugle** : l'âge, le genre, le métier et
+le caractère orientent chaque rayon. Un plombier ne s'habille pas comme une
+notaire, un enfant ne porte pas de cravate, et la calvitie ne frappe pas les
+étudiants. Les pièces incompatibles sont retirées du sac *avant* le tirage —
+corriger après coup laissait toujours passer trois hommes en jupe, et le
+joueur ne voyait plus que ça.
+
+Résultat sur un immeuble neuf : **130 apparences distinctes pour
+130 habitants**, aucune pièce ne dépassant 20 % de présence. `npm test` le
+vérifie, avec la cohérence de chaque tenue.
+
+### Douze expressions
+
+Neutre, content, surpris, choqué, en colère, triste, rêveur, énergique,
+méfiant, effrayé, amoureux, fatigué. Chacune n'est qu'un jeu de valeurs sur
+quatre canaux — sourcils, coin interne du sourcil, courbe de la bouche,
+ouverture — plus parfois un mouvement de tête, et le lissage enchaîne le
+reste sans qu'aucune transition soit écrite.
+
+Une expression de surprise ne peut pas naître de l'état intérieur : personne
+ne devient surpris tout seul. C'est le monde qui la déclenche — un
+évènement grave provoque un sursaut chez ses acteurs, qui le portent
+quelques secondes avant de retrouver leur humeur.
+
 ### Comment un corps est construit
 
 Un membre entier est **un seul tracé**. C'est la règle qui décide de tout :
@@ -227,14 +275,27 @@ poids d'une jambe sur l'autre, et une posture de repos différente pour
 chaque habitant — personne ne se tient droit comme un i. Quand quelqu'un
 parle, la bouche s'anime et les mains accompagnent.
 
-Une vingtaine de poses couvrent les actions : marche à cycle complet
-(bras et jambes opposés, double rebond), touiller une casserole, porter la
-fourchette à la bouche, donner un coup de balai, danser sur deux fréquences
-décalées, s'énerver en tremblant, pianoter, téléphoner en gesticulant.
+Vingt-sept poses couvrent les actions : marche à cycle complet (bras et
+jambes opposés, double rebond), course avec les deux pieds en l'air au
+passage, touiller une casserole, porter la fourchette à la bouche, boire,
+donner un coup de balai, danser sur deux fréquences décalées, s'énerver en
+tremblant, pianoter, téléphoner, discuter avec les mains, écouter en
+hochant la tête, embrasser, jouer à la manette, réfléchir le menton dans la
+main, se relever.
+
+Les poses « main au visage » ne sont pas réglées à l'estime : l'épaule et le
+coude sont **résolus** pour que le poignet arrive devant la bouche ou à
+l'oreille. Au jugé, le bras partait sur le côté et l'habitant téléphonait
+dans le vide.
 
 `npm test` vérifie tout ça hors navigateur : amplitude du cycle de marche,
 opposition bras/jambes, fondu entre poses, retard de la tête sur la main, et
 absence de divergence sur l'ensemble des poses.
+
+Pour juger à l'œil, `tools/planche.html` sort une planche de contrôle —
+visages en très gros plan, six habitants en pied, quarante silhouettes, les
+douze expressions et toutes les poses. Lancez `npm start` et ouvrez
+`/tools/planche.html` (on peut passer une graine : `?seed=quartier`).
 
 ### Aucun appartement n'en répète un autre
 
@@ -298,7 +359,7 @@ src/
   sim/                la simulation entière — aucune dépendance au navigateur
   render/             façade, intérieurs, personnages, caméra, scène finale
   ui/                 bandeau, chronique, fiche d'habitant, interventions
-tools/                serveur statique, simulation sans écran, tests
+tools/                serveur statique, simulation sans écran, tests, planche graphique
 ```
 
 `src/sim/` ne connaît ni le DOM ni le canvas : c'est ce qui permet de faire

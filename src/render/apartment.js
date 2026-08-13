@@ -7,7 +7,9 @@
 // à ses habitants. Deux appartements ne doivent jamais se ressembler.
 
 import { PALETTE, pickStable, shade, rgba, ambientLight, skyColors, mixHex } from './palette.js';
-import { drawCharacter, drawSpeech, roundRect, appearance } from './character.js';
+import { drawCharacter, drawSpeech } from './character.js';
+import { roundRect } from './ink.js';
+import { appearance } from './wardrobe.js';
 import { planFor, propsFor } from './interior-plan.js';
 
 /** Où se tient quelqu'un en fonction de ce qu'il fait, dans SON appartement. */
@@ -54,13 +56,20 @@ export function updatePositions(world, apt, dt) {
     p.zRank = same.length > 1 ? (rank % 2) : 0;
     const target = Math.max(0.05, Math.min(0.95, base + offset));
     const dx = target - p.pos.x;
+    // On court quand on est pressé, et alors on avance vraiment plus vite :
+    // une pose de course sur une vitesse de marche donne un patineur.
+    const presse = Math.abs(dx) > 0.32
+      && (p.age < 14 || (p.stress ?? 0) > 74
+        || p.action?.id === 'confronter' || p.action?.id === 'plaindre');
     if (Math.abs(dx) > 0.004) {
-      p.pos.x += Math.sign(dx) * Math.min(Math.abs(dx), dt * 0.22);
+      p.pos.x += Math.sign(dx) * Math.min(Math.abs(dx), dt * (presse ? 0.44 : 0.22));
       p.facing = Math.sign(dx) || p.facing;
       p.walking = true;
+      p.running = presse;
     } else {
       p.pos.x = target;
       p.walking = false;
+      p.running = false;
     }
   });
 }
@@ -645,7 +654,7 @@ function drawWallDecor(S, occupants) {
       ctx.beginPath();
       ctx.arc(fx + fw / 2, fy + fh * 0.4, fw * 0.17, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = look.top;
+      ctx.fillStyle = look.topColor;
       ctx.fillRect(fx + fw * 0.28, fy + fh * 0.52, fw * 0.44, fh * 0.3);
     }
   }
