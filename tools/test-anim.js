@@ -9,6 +9,7 @@
 
 import {
   updateRig, POSES, poseFor, EXPRESSIONS, EXPRESSION_ALIAS,
+  BIBLE_ANIMATIONS, animationOf,
 } from '../src/render/anim.js';
 import { emotionOf } from '../src/render/character.js';
 import { World } from '../src/sim/world.js';
@@ -124,20 +125,53 @@ console.log('\n— Chaque action a bien une pose —');
   const vues = new Set(['marche', 'courir', 'bebe', 'couche', 'releve', 'reveil',
     'habille', 'conduit']);   // celles-là sont choisies par le rendu, pas par poseFor
   const inconnues = [];
+
+  // Un état = une modification, appliquée seule. Ensemble, le facteur le
+  // plus prioritaire masque les autres et on conclurait à tort qu'une pose
+  // est morte. Les besoins ne sont pas des champs : on passe par leur API.
+  const energie = (p, v) => p.needs.add('energie', v - p.needs.get('energie'));
+  const etats = [
+    (p) => {},
+    (p) => { p.mood = 15; },
+    (p) => { p.mood = 85; },
+    (p) => { p.debt = 2000; },
+    (p) => { p.addiction = 0.6; },
+    (p) => { p.stress = 90; },
+    (p) => { p.stress = 70; },
+    (p) => { p.mood = 40; },
+    (p) => { p.health = 40; },
+    (p) => { p.health = 50; p.age = 62; },
+    (p) => energie(p, 12),
+    // Le tout début d'une action : c'est là qu'on se couche et qu'on frappe.
+    (p) => { p.action = { ...p.action, total: 12, remaining: 12 }; },
+    (p) => { p.stairs = { dir: 1, ttl: 2 }; },
+    (p) => { p.stairs = { dir: -1, ttl: 2 }; },
+    (p) => { p.parcel = { dir: 1, ttl: 3 }; },
+    (p) => { p.parcel = { dir: -1, ttl: 3 }; },
+  ];
+  const neutre = (p) => {
+    Object.assign(p, {
+      mood: 60, debt: 0, addiction: 0, stress: 20, health: 90,
+      stairs: null, parcel: null,
+    });
+    energie(p, 70);
+  };
+
   for (const p of people) {
+    const age = p.age;
     for (const id of ids) {
-      p.action = { id };
-      // Chaque facteur testé SEUL : ensemble, le plus prioritaire masque
-      // les autres et on conclurait à tort qu'une pose est morte.
-      for (const etat of [{}, { mood: 15 }, { debt: 2000 }, { addiction: 0.6 },
-        { stress: 90 }, { mood: 40 }]) {
-        Object.assign(p, { mood: 60, debt: 0, addiction: 0, stress: 20 }, etat);
+      for (const etat of etats) {
+        neutre(p);
+        p.age = age;
+        p.action = { id };
+        etat(p);
         const pose = poseFor(p);
         if (!POSES[pose]) inconnues.push(`${id}→${pose}`);
         vues.add(pose);
       }
     }
-    Object.assign(p, { mood: 60, debt: 0, addiction: 0, stress: 20 });
+    neutre(p);
+    p.age = age;
     p._startle = { kind: 'surprise', ttl: 4, max: 4 };
     vues.add(poseFor(p));
     p._startle = null;
@@ -155,10 +189,40 @@ console.log('\n— Chaque action a bien une pose —');
   const mortes = toutes.filter((x) => !vues.has(x));
   check(`les ${toutes.length} poses sont toutes atteignables`, mortes.length === 0,
     mortes.join(', '));
-  check('soixante poses, comme l\'asset bible', toutes.length === 60, `${toutes.length}`);
+  // La bible demande soixante ANIMATIONS ; le jeu en a plus de poses, parce
+  // qu'une même animation se décline (le ménage a quatre gestes, tous
+  // rangés sous « nettoyer »). Ce qui doit être exact, c'est la couverture :
+  // aucune animation de la bible sans pose qui y mène. C'est vérifié plus
+  // bas, animation par animation.
+  check('plus de poses que d\'animations, jamais moins',
+    toutes.length >= 60, `${toutes.length}`);
   check('marcher prime sur le reste', poseFor({ action: { id: 'tv' }, walking: true }) === 'marche');
   check('courir prime sur marcher',
     poseFor({ action: { id: 'tv' }, walking: true, running: true }) === 'courir');
+
+  // --- Le contrat de la bible ------------------------------------------------
+  //
+  // Les soixante animations de la bible sont des NOMS DE FICHIERS : chacune
+  // devient une planche à livrer. Une animation qu'aucune pose ne réclame,
+  // c'est une planche qu'on ferait dessiner pour rien — et c'est le genre
+  // de gaspillage qu'on ne découvre qu'après l'avoir payé.
+  const bible = BIBLE_ANIMATIONS.map(([nom]) => nom);
+  check('soixante animations, comme l\'asset bible', bible.length === 60, `${bible.length}`);
+  check('aucune animation en double', new Set(bible).size === 60);
+
+  const demandees = new Set([...vues].map(animationOf).filter(Boolean));
+  const jamais = bible.filter((a) => !demandees.has(a));
+  check('chaque animation de la bible est réclamée par une pose atteignable',
+    jamais.length === 0, jamais.join(', '));
+
+  const orphelines = [...new Set(Object.keys(POSES).map(animationOf))]
+    .filter((a) => a !== null && !bible.includes(a));
+  check('aucune pose ne réclame une planche qui n\'existe pas au catalogue',
+    orphelines.length === 0, orphelines.join(', '));
+
+  const sansPlanche = Object.keys(POSES).filter((x) => animationOf(x) === null);
+  check('chaque pose sait quelle planche la remplace',
+    sansPlanche.length === 0, sansPlanche.join(', '));
 }
 
 console.log('\n— Les quarante expressions sont vraiment quarante —');

@@ -18,32 +18,58 @@ Il n'y a rien d'autre à faire. Poser un fichier au bon nom suffit.
 | | |
 |---|---|
 | **Format** | `.png` (ou `.webp`, mieux compressé). Les deux marchent. |
-| **Poids** | **300 ko maximum par image.** Tout finit en base64 dans `behind.html`, et le base64 gonfle de 33 %. |
+| **Poids** | **300 ko** par image, **1,4 Mo** pour une planche de personnage. Voir « Le fichier unique » plus bas : au-delà d'un certain total, `behind.html` ne peut plus tout embarquer. |
 | **Nom** | exactement celui du tableau, en minuscules, sans accent. C'est le nom qui fait le branchement. |
 | **Style** | Celui de la charte : animation urbaine française, trait d'encre sombre, aplats francs, couleurs chaudes et contrastées. **Création originale — ne reproduire directement aucune œuvre existante.** |
 
 ---
 
-## Ce qui ne peut PAS être remplacé par une image
+## Les habitants aussi sont des images
 
-Les habitants **dans** l'appartement restent dessinés par le code, et ce
-n'est pas un choix d'économie.
+**Livrez une planche, elle remplace le pantin.** C'est la règle depuis la
+bible : dès qu'une planche existe pour un gabarit et une animation, c'est
+elle qui s'affiche, à l'image près, sans retouche du jeu — pas de teinte
+appliquée, pas de recoloriage de tenue, pas de bras rapporté. Ce que le
+dessinateur livre est ce qu'on voit.
 
-Ils marchent, se retournent, s'assoient, se couchent, vieillissent, changent
-de tenue selon la saison, portent quarante expressions, et il y en a cent
-trente qui naissent, déménagent et meurent pendant la partie. Les figer en
-images demanderait, pour chaque comédien, une planche par pose × par
-direction × par tenue — et il n'y aurait toujours pas de vieillissement.
+Le dessin par code n'a pas disparu pour autant, et il ne faut pas qu'il
+disparaisse : c'est lui qui tient les emplacements vides. Un immeuble a cent
+trente habitants qui naissent, vieillissent, changent de tenue selon la
+saison et portent quarante expressions ; tant que les 360 planches ne sont
+pas toutes livrées, ce sont les gabarits manquants qui continuent d'être
+animés par le code, et le raccord se fait sans un mot.
 
-Le compromis retenu est celui-ci : **décor peint, habitants animés.** C'est
-exactement la répartition d'un film d'animation.
+Concrètement, sur un même écran, un gabarit livré et un gabarit non livré
+cohabitent. **Livrez donc par gabarit complet** (les soixante animations
+d'un même gabarit) plutôt que par animation : un gabarit à moitié fait
+passe du dessin à la planche en plein mouvement, et ça se voit.
+
+## Le fichier unique, et sa limite
+
+`npm run build` fabrique `behind.html` : un seul fichier, tout dedans, en
+base64 — qui gonfle de 33 %. Ça marche très bien pour les décors, les
+ambiances et les portraits.
+
+**Les 360 planches de personnages n'y tiendront pas.** Comptez, en dessin
+définitif, 300 ko à 1 Mo par planche : entre 100 et 350 Mo de PNG, donc
+130 à 470 Mo de base64. Aucun navigateur n'ouvrira ça.
+
+Il y a donc deux distributions, et c'est assumé :
+
+| | Ce qu'elle contient | Pour qui |
+|---|---|---|
+| **Le dossier** (`npm start`, ou un hébergement) | tout, planches comprises | la vraie version |
+| **`behind.html`** | décors, ambiances, portraits, expressions, usures — et les habitants dessinés par le code | à envoyer par mail, à ouvrir hors ligne |
+
+`node tools/check-assets.js` affiche le total livré en mégaoctets et
+signale ce qui dépasse le budget du fichier unique.
 
 ---
 
-# Le catalogue complet — 251 emplacements
+# Le catalogue complet — 651 emplacements
 
 `node tools/check-assets.js` liste l'état de chacun. Ce qui suit est le
-détail des cinq familles.
+détail des sept familles.
 
 ## 1. Les quarante décors — `decors/` · 1600 × 900 · opaque
 
@@ -98,6 +124,12 @@ ne serait payée pour n'être jamais vue.
 
 **La ligne de sol est à 86 % de la hauteur** (y = 774 px sur 900). Les
 pieds des habitants s'y posent. C'est la seule contrainte dure.
+
+Le jeu recadre le décor pour remplir la pièce, et il le recadre **sur cette
+ligne**, pas sur le centre de l'image : le parquet dessiné tombe donc
+toujours sous les pieds, quelle que soit la forme de l'appartement. Le
+débordement se fait en haut, dans le plafond. Ne mettez rien d'important
+dans les 8 % supérieurs de l'image.
 
 ## 2. Les vingt-cinq ambiances — `ambiances/` · 1920 × 1080 · opaque
 
@@ -160,3 +192,91 @@ face. Le calque, lui, se pose sur n'importe quelle maçonnerie.
 
 L'immeuble commence la partie avec un âge tiré au sort entre 0 et 45 ans,
 puis vieillit avec elle.
+
+## 6. Les trois cent soixante planches — `personnages/` · **transparent**
+
+**Six gabarits × soixante animations.** C'est le gros de la commande, et
+c'est la famille qui remplace le dessin par code.
+
+| Gabarit | Qui | Taille à l'écran |
+|---|---|---|
+| `enfant` | moins de 12 ans | petit, tête proportionnellement grosse |
+| `ado` | 12 à 19 ans | dégingandé, légèrement voûté |
+| `homme` | homme, 20 à 49 ans | référence |
+| `femme` | femme, 20 à 53 ans | référence |
+| `mature` | 50 à 67 ans | épaissi, posture qui s'affaisse |
+| `senior` | 68 ans et plus | tassé, appui plus large |
+
+Nom de fichier : **`gabarit-animation.png`** — `homme-marcher.png`,
+`senior-prier.png`, `enfant-danser.png`. Rien d'autre.
+
+### La case, et la seule contrainte dure
+
+Une planche est **une bande horizontale**, une image par case, de gauche à
+droite :
+
+```
+┌────────┬────────┬────────┬────────┐   case : 256 × 384
+│  img1  │  img2  │  img3  │  img4  │   personnage CENTRÉ horizontalement
+│        │        │        │        │   PIEDS SUR LE BORD DU BAS
+└────────┴────────┴────────┴────────┘   fond transparent
+```
+
+**Les pieds touchent le bord du bas.** C'est la règle qui ne se négocie
+pas : le jeu pose le bas de la case sur la ligne de sol de la pièce. Si le
+personnage flotte de dix pixels dans la case, il flottera de dix pixels dans
+l'appartement — et ça ne se voit pas en regardant la planche, seulement en
+jeu, sur tous les écrans à la fois.
+
+Le personnage regarde **vers la droite**. Le jeu retourne l'image quand il
+va vers la gauche ; ne livrez pas les deux sens.
+
+La largeur totale doit être un multiple exact du nombre d'images. Une
+planche à 300 px la case au lieu de 256 marche : le jeu découpe d'après la
+largeur réelle du fichier, pas d'après la spécification.
+`node tools/check-assets.js` refuse en revanche une largeur qui ne tombe pas
+juste — le découpage tremblerait à chaque case.
+
+### Les soixante animations
+
+Le nombre d'images et la cadence sont ceux de la bible.
+`node tools/check-assets.js` les rappelle emplacement par emplacement.
+
+| # | | | |
+|---|---|---|---|
+| **Déplacements** | `marcher` 8·12 · `courir` 8·16 · `monter_escaliers` 8·10 · `descendre_escaliers` 8·10 | `s_asseoir` 6·10 · `se_lever` 6·10 | `se_pencher` 4·8 · `porter_objet` 6·10 |
+| **Quotidien** | `cuisiner` 6·8 · `manger` 6·6 · `boire` 6·6 · `lire` 4·4 | `ecrire` 6·8 · `telephoner` 6·6 · `regarder_tele` 4·4 | `faire_menage` 6·8 · `faire_lessive` 6·8 · `bricoler` 6·10 · `arroser_plantes` 6·6 · `fumer` 6·5 |
+| **Social** | `parler` 6·8 · `discuter_anime` 8·10 · `ecouter` 4·5 | `se_disputer` 8·12 · `se_reconcilier` 6·7 · `embrasser` 4·4 | `saluer` 6·10 · `faire_calin` 4·4 · `donner_objet` 5·8 · `recevoir_objet` 5·8 |
+| **Loisirs** | `jouer_video` 6·8 · `jouer_guitare` 6·10 · `peindre` 6·7 · `dessiner` 6·8 | `faire_sport` 8·12 · `yoga` 4·3 · `danser` 8·12 | `ecouter_musique` 6·8 · `jardiner` 6·7 · `bricoler_creatif` 6·8 |
+| **États** | `heureux` 4·5 · `triste` 4·4 · `en_colere` 6·12 · `fatigue` 4·4 | `stresse` 6·10 · `peur` 6·12 · `malade` 4·4 | `ivre` 6·6 · `amoureux` 4·5 · `deprime` 4·3 |
+| **Spéciales** | `dormir` 4·3 · `se_reveiller` 6·8 · `se_coucher` 6·8 | `pleurer` 6·8 · `crise_de_rire` 6·12 · `prier` 4·3 | `surprise` 5·12 · `regarder_fenetre` 4·4 · `ecouter_porte` 4·4 · `feter` 8·12 |
+
+*(lire « `marcher` 8·12 » : huit images, douze par seconde.)*
+
+Toutes doivent **boucler proprement** sauf celles qui ont un début et une
+fin — `s_asseoir`, `se_lever`, `se_coucher`, `se_reveiller`, `surprise`,
+`donner_objet`, `recevoir_objet` — que le jeu joue en boucle lente le temps
+que l'action dure.
+
+`heureux` est la plus vue de toutes : c'est elle qui sert de repos quand un
+habitant ne fait rien de particulier. Soignez-la avant les autres.
+
+`npm test` vérifie que les soixante sont **réclamées par un état réel de la
+simulation** : aucune planche ne serait payée pour n'être jamais jouée.
+
+## 7. Les quarante expressions — `expressions/` · 512 × 512 · **transparent**
+
+Un gros plan de visage par émotion, pour l'interface — la fiche d'un
+habitant, un moment de chronique. Ce ne sont **pas** les visages des
+planches d'animation : sur une planche, le visage est déjà dessiné dedans.
+
+`neutre` · `heureuse` · `rire` · `fou_rire` · `amusee` · `euphorique` ·
+`fiere` · `soulagee` · `attendrie` · `amoureuse` · `timide` ·
+`nostalgique` · `songeuse` · `concentree` · `determinee` · `curieuse` ·
+`confuse` · `douteuse` · `suspicieuse` · `ennui` · `surprise` · `choquee` ·
+`irritee` · `colere` · `menace` · `mepris` · `degout` · `jalousie` ·
+`triste` · `honteuse` · `resignee` · `inquiete` · `stressee` · `peur` ·
+`panique` · `fatiguee` · `assoupie` · `endormie` · `malade` · `ivre`
+
+Même cadrage pour toutes les quarante : c'est la comparaison entre elles qui
+fait l'expression, pas chaque image prise seule.

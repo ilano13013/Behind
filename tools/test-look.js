@@ -195,12 +195,29 @@ console.log('\n— Les intérieurs racontent qui y vit —');
 console.log('\n— Chaque image du catalogue peut être vue —');
 {
   const par = (f) => SLOTS.filter((s) => s.id.startsWith(`${f}/`)).map((s) => s.id);
-  check('251 emplacements, comme l\'asset bible', SLOTS.length === 251, `${SLOTS.length}`);
+  check('651 emplacements, comme l\'asset bible', SLOTS.length === 651, `${SLOTS.length}`);
   check('40 décors', par('decor').length === 40);
   check('25 ambiances', par('ambiance').length === 25);
   check('170 portraits', par('portrait').length === 170);
   check('10 commerces', par('commerce').length === 10);
   check('6 calques d\'usure', par('batiment').length === 6);
+  check('40 expressions', par('expression').length === 40);
+  // Six gabarits × soixante animations : c'est le gros de la commande, et
+  // c'est le seul lot qu'on ne peut pas livrer à moitié — un gabarit qui
+  // n'a que la moitié de ses planches retombe sur le pantin en plein
+  // mouvement, et ça se voit comme un raccord raté.
+  check('360 planches de personnages', par('perso').length === 360);
+  const parGabarit = {};
+  for (const s of SLOTS.filter((x) => x.sprite)) {
+    parGabarit[s.gabarit] = (parGabarit[s.gabarit] ?? 0) + 1;
+  }
+  check('chaque gabarit a ses soixante planches',
+    Object.values(parGabarit).every((n) => n === 60) && Object.keys(parGabarit).length === 6,
+    Object.entries(parGabarit).map(([k, v]) => `${k}:${v}`).join(' '));
+  check('chaque planche dit combien d\'images elle contient',
+    SLOTS.filter((s) => s.sprite).every((s) => s.frames >= 1 && s.fps >= 1));
+  check('la largeur annoncée est bien celle de toutes ses cases',
+    SLOTS.filter((s) => s.sprite).every((s) => s.w === 256 * s.frames && s.h === 384));
 
   // Les ambiances ordinaires : trois ans suffisent à toutes les voir.
   const vues = new Set();

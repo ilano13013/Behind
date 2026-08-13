@@ -11,6 +11,7 @@ import {
 import { roundRect } from './ink.js';
 import { asset, ambianceFor, batimentFor, drawCover } from './assets.js';
 import { occupantsOf } from './apartment.js';
+import { drawCharacter } from './character.js';
 import { SPECIAL_UNITS } from '../sim/building.js';
 
 export class FacadeLayout {
@@ -452,6 +453,12 @@ function drawCurtains(ctx, apt, r, time) {
   ctx.restore();
 }
 
+/** L'étage d'un appartement, par son identifiant. */
+function floorOf(world, aptId) {
+  if (aptId === null || aptId === undefined) return -1;
+  return world.apartments.find((a) => a.id === aptId)?.floor ?? -1;
+}
+
 function drawStairwell(ctx, world, layout, apt, time, amb) {
   const c = layout.cellRect(apt);
   const r = { x: c.x + c.w * 0.3, y: c.y + c.h * 0.14, w: c.w * 0.4, h: c.h * 0.72 };
@@ -462,17 +469,30 @@ function drawStairwell(ctx, world, layout, apt, time, amb) {
   ctx.fillRect(r.x, r.y, r.w, r.h);
   ctx.fillStyle = amb > 0.5 ? 'rgba(255,255,255,0.1)' : 'rgba(255,205,140,0.12)';
   ctx.fillRect(r.x, r.y + r.h * 0.62, r.w, r.h * 0.08);
-  // La minuterie du hall, qui s'allume quand quelqu'un passe.
-  const someone = (Math.sin(time * 0.31 + apt.floor * 2.1) > 0.86);
-  if (someone) {
+  // Qui est dans la cage, en vrai. La simulation marque les habitants qui
+  // viennent de sortir de chez eux ou d'y rentrer ; on les montre à
+  // l'étage où ils habitent. C'était la dernière ombre décorative du jeu —
+  // une silhouette qui passait toute seule, sans que personne ne passe.
+  const passants = world.livingPeople().filter(
+    (p) => p.stairs && floorOf(world, p.apartment) === apt.floor);
+
+  // La minuterie du hall : elle s'allume PARCE QUE quelqu'un passe.
+  if (passants.length) {
     ctx.fillStyle = 'rgba(255,210,140,0.55)';
     ctx.fillRect(r.x, r.y, r.w, r.h);
-    ctx.fillStyle = 'rgba(30,20,15,0.6)';
-    const px = r.x + r.w * (0.3 + Math.sin(time * 2 + apt.floor) * 0.2);
-    ctx.beginPath();
-    ctx.ellipse(px, r.y + r.h * 0.62, r.w * 0.12, r.h * 0.26, 0, 0, Math.PI * 2);
-    ctx.fill();
   }
+  passants.forEach((p, i) => {
+    // Derrière le verre dépoli de la cage, on ne voit qu'une découpe. Et
+    // c'est très bien : l'immeuble garde ses secrets jusqu'au zoom.
+    const n = passants.length;
+    const px = r.x + r.w * (n > 1 ? (i + 1) / (n + 1) : 0.5);
+    ctx.save();
+    ctx.globalAlpha = 0.72;
+    drawCharacter(ctx, p, px, r.y + r.h * 0.94, r.h * 0.78, {
+      time, dt: 1 / 60, silhouette: true, facing: p.stairs.dir > 0 ? 1 : -1,
+    });
+    ctx.restore();
+  });
   ctx.strokeStyle = rgba(PALETTE.frameDark, 0.5);
   ctx.lineWidth = 1;
   ctx.strokeRect(r.x, r.y, r.w, r.h);

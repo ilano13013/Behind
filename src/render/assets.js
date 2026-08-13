@@ -23,6 +23,7 @@
 
 import { ARCHETYPES } from './interior-plan.js';
 import { MORPHO } from './wardrobe.js';
+import { BIBLE_ANIMATIONS, EXPRESSIONS, animationOf } from './anim.js';
 
 /** Où le jeu va chercher les images. Le bundler y injecte du base64. */
 export const ASSET_BASE = 'assets/';
@@ -140,8 +141,51 @@ for (const an of AGES_BATIMENT) {
   });
 }
 
+// --- Personnages : les planches de sprites -----------------------------------
+//
+// C'est LA famille qui remplace le dessin par du dessiné. Six gabarits ×
+// soixante animations = 360 planches. Une planche est une bande horizontale
+// d'images de taille égale, lues de gauche à droite, qui boucle.
+//
+// Le cadrage est la seule contrainte dure, et c'est l'équivalent de la
+// ligne de sol des décors :
+//
+//   ┌────────┬────────┬────────┐   chaque case : 256 × 384
+//   │  img1  │  img2  │  img3  │   personnage CENTRÉ horizontalement
+//   │        │        │        │   PIEDS SUR LE BORD DU BAS
+//   └────────┴────────┴────────┘   fond transparent
+//
+// Si les pieds ne sont pas sur le bord bas, tout le monde flotte — et
+// c'est invisible sur la planche, ça ne se voit qu'en jeu.
+
+export const CASE_PERSO = { w: 256, h: 384 };
+export const GABARITS = Object.keys(MORPHO);
+
+for (const gabarit of GABARITS) {
+  for (const [anim, frames, fps] of BIBLE_ANIMATIONS) {
+    slot(`perso/${gabarit}-${anim}`, {
+      dir: 'personnages', name: `${gabarit}-${anim}`,
+      w: CASE_PERSO.w * frames, h: CASE_PERSO.h,
+      role: `${MORPHO[gabarit].label} — « ${anim.replace(/_/g, ' ')} » · ${frames} images à ${fps} i/s`,
+      gabarit, anim, frames, fps, sprite: true,
+    });
+  }
+}
+
+// --- Expressions ---
+// Les quarante visages de la bible, en gros plan. Ils servent l'interface —
+// fiche d'habitant, bulles, notifications — pas le personnage dans la pièce,
+// qui est trop petit pour qu'on y lise un sourcil.
+for (const nom of Object.keys(EXPRESSIONS)) {
+  slot(`expression/${nom}`, {
+    dir: 'expressions', name: nom, w: 512, h: 512,
+    role: `Visage « ${nom.replace(/_/g, ' ')} », gros plan, fond transparent`,
+  });
+}
+
 // --- État du chargement ------------------------------------------------------
 
+const SLOT_BY_ID = new Map(SLOTS.map((x) => [x.id, x]));
 const images = new Map();     // id → HTMLImageElement prêt à dessiner
 const failed = new Set();     // id → on a essayé, il n'y a rien
 let started = false;
@@ -296,6 +340,37 @@ export function batimentFor(world) {
   return `batiment/${choisi}ans`;
 }
 
+/**
+ * La planche de sprites d'un habitant pour la pose en cours.
+ *
+ * Renvoie de quoi dessiner l'image exacte : l'élément, la case à découper,
+ * et la hauteur nominale. Renvoie null s'il n'y a pas de planche — et
+ * alors, et seulement alors, le pantin procédural reprend la main.
+ */
+export function spriteFor(person, pose, temps) {
+  const gabarit = person._look?.morpho;
+  if (!gabarit) return null;
+  const anim = animationOf(pose);
+  if (!anim) return null;
+  const id = `perso/${gabarit}-${anim}`;
+  const img = images.get(id);
+  if (!img) return null;
+
+  const def = SLOT_BY_ID.get(id);
+  const frames = def?.frames ?? 1;
+  const fps = def?.fps ?? 8;
+  // La planche peut être livrée à une autre échelle que celle demandée :
+  // on découpe d'après SA largeur réelle, pas d'après la spécification.
+  const caseW = img.width / frames;
+  const i = Math.floor(temps * fps) % frames;
+  return { img, sx: i * caseW, sy: 0, sw: caseW, sh: img.height, frames, fps };
+}
+
+/** Le gros plan d'une expression, pour l'interface. */
+export function expressionAsset(kind) {
+  return images.get(`expression/${kind}`) ?? null;
+}
+
 /** Le décor d'un lieu — appartement ou commerce du rez-de-chaussée. */
 export function decorFor(apt) {
   if (apt.commerce) return `commerce/${apt.commerce}`;
@@ -312,4 +387,28 @@ export function drawCover(ctx, img, x, y, w, h) {
   const dw = img.width * ratio;
   const dh = img.height * ratio;
   ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+}
+
+/** La ligne de sol des décors, en fraction de leur hauteur. */
+export const LIGNE_SOL = 0.86;
+
+/**
+ * Un décor recadré sur SA ligne de sol, pas sur son centre.
+ *
+ * Ça n'a l'air de rien, et c'est pourtant tout le sujet : le jeu recadre le
+ * décor pour remplir la pièce, et ce recadrage décale verticalement l'image.
+ * Centré, le parquet dessiné finit trente pixels sous les pieds des
+ * habitants — qui marchent alors dans le mur du dessous. On cale donc la
+ * ligne de sol de l'image sur celle de la pièce, et on laisse le
+ * débordement se faire en haut, dans le plafond, où personne ne le voit.
+ */
+export function drawDecorSol(ctx, img, x, y, w, h, solY) {
+  const ratio = Math.max(w / img.width, h / img.height);
+  const dw = img.width * ratio;
+  const dh = img.height * ratio;
+  const dx = x + (w - dw) / 2;
+  // Recaler, puis refuser de découvrir un bord : mieux vaut un sol
+  // légèrement décalé qu'une bande vide en haut de la pièce.
+  const dy = Math.min(y, Math.max(y + h - dh, solY - dh * LIGNE_SOL));
+  ctx.drawImage(img, dx, dy, dw, dh);
 }

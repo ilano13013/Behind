@@ -19,6 +19,7 @@ import {
   drawTopDetails, drawCollar, drawAccessory, drawTinyAccessory, drawHeadAccessory,
   drawShoe,
 } from './wardrobe.js';
+import { spriteFor } from './assets.js';
 
 // Le canon de la charte : « proportions légèrement caricaturales ». Ni le
 // réalisme (huit têtes, sec) ni le chibi (quatre têtes, mignon). On vise un
@@ -347,6 +348,27 @@ export function drawCharacter(ctx, person, x, y, h, o = {}) {
 
   const facing = o.facing ?? person.facing ?? 1;
   const scale = (h * heightFactor(person.age)) / UNITS;
+
+  // --- La planche dessinée, si elle existe -----------------------------------
+  //
+  // Ici se joue la promesse de la bible : quand une planche de sprites est
+  // livrée pour ce gabarit et cette animation, c'est ELLE qu'on voit, pas le
+  // pantin. Le code au-dessus a quand même tourné — `updateRig` a avancé le
+  // squelette, `emotionOf` a lu l'humeur — et c'est volontaire : le jour où
+  // une seule planche manque, la retombée sur le dessin procédural est déjà
+  // chaude, sans une image de saccade.
+  //
+  // On ne fait rien de malin avec l'image. Pas de teinte, pas de
+  // recoloriage de tenue, pas de bras rapporté : ce que le dessinateur a
+  // livré est ce qui s'affiche. Une planche qu'on retouche en jeu, c'est
+  // une planche dont on ne peut plus garantir le rendu.
+  const sprite = silhouette ? null : spriteFor(person, poseName, t);
+  if (sprite) {
+    drawSprite(ctx, sprite, x, y - c.bob * h, h * heightFactor(person.age),
+      facing, o.alpha ?? 1);
+    drawEmotes(ctx, person, x, y, h, o, c.lie > 0.5);
+    return;
+  }
 
   ctx.save();
   ctx.globalAlpha = o.alpha ?? 1;
@@ -951,6 +973,33 @@ function drawLying(ctx, person, look, c, t, silhouette) {
 }
 
 // --- Bulles et pictogrammes -------------------------------------------------
+
+/**
+ * Pose une case de planche sur le sol.
+ *
+ * La convention de la bible, et elle n'est pas négociable : le personnage
+ * est centré horizontalement dans sa case et ses PIEDS TOUCHENT LE BORD DU
+ * BAS. Tout le placement en découle — on colle le bas de l'image sur la
+ * ligne de sol, et le personnage est posé, pas flottant.
+ *
+ * La largeur suit le rapport de la case livrée, jamais une valeur fixe :
+ * une planche rendue en 300 × 384 doit rester en 300 × 384, quitte à
+ * déborder. Forcer la largeur, c'est écraser le dessin.
+ */
+function drawSprite(ctx, s, x, sol, hauteur, facing, alpha) {
+  const w = hauteur * (s.sw / s.sh);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, sol);
+  if (facing < 0) ctx.scale(-1, 1);
+  // `imageSmoothingQuality` : les planches sont grandes et le jeu les
+  // réduit beaucoup. Sans ça, les traits fins d'encre scintillent dès que
+  // le personnage bouge d'un pixel.
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(s.img, s.sx, s.sy, s.sw, s.sh, -w / 2, -hauteur, w, hauteur);
+  ctx.restore();
+}
 
 function drawEmotes(ctx, person, x, y, h, o, lying) {
   if (o.silhouette) return;

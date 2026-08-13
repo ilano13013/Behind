@@ -1099,6 +1099,306 @@ export const POSES = {
     };
   },
 
+  // --- Les animations de la bible qui manquaient encore ---------------------
+  //
+  // Les noms internes des poses ci-dessus sont l'héritage du dessin
+  // procédural ; les noms de la bible, eux, sont des noms de FICHIERS, et
+  // c'est POSE_TO_ANIMATION qui fait le pont. Celles qui suivent portent
+  // directement leur nom de bible parce qu'elles n'avaient aucun équivalent.
+
+  monter_escaliers: (t) => {
+    // Monter : le genou très haut, le buste penché en avant, la main qui
+    // suit la rampe. Ce n'est pas une marche inclinée.
+    const c = t * 5.5;
+    const swing = Math.sin(c);
+    return {
+      legL: swing * 0.9 - 0.25, legR: -swing * 0.9 - 0.25,
+      armL: -0.5, armR: 0.9,
+      elbowL: 0.6, elbowR: -0.9,
+      lean: 0.28,
+      bob: 0.02 + Math.abs(Math.cos(c)) * 0.03,
+      headTilt: 0.06,
+      handL: 0.3, handR: 0.15,
+    };
+  },
+
+  descendre_escaliers: (t) => {
+    // Descendre : le buste en arrière, la jambe qui tâte devant.
+    const c = t * 6;
+    const swing = Math.sin(c);
+    return {
+      legL: swing * 0.75 + 0.2, legR: -swing * 0.75 + 0.2,
+      armL: -0.7, armR: 0.55,
+      elbowL: 0.5, elbowR: -0.7,
+      lean: -0.14,
+      bob: Math.abs(Math.cos(c)) * 0.02,
+      handL: 0.2, handR: 0.35,
+    };
+  },
+
+  discuter_anime: (t) => {
+    // La même conversation, mais montée d'un cran : les deux bras partent,
+    // le buste accompagne, la tête ponctue.
+    const a = t * 3.4;
+    return {
+      armL: -0.9 + Math.sin(a) * 0.7, armR: 1.0 + Math.sin(a * 1.3 + 1.1) * 0.75,
+      elbowL: 1.3 + Math.sin(a * 1.1) * 0.6, elbowR: -1.35 - Math.sin(a * 0.9) * 0.6,
+      lean: 0.08 + Math.sin(a * 0.6) * 0.05,
+      twist: Math.sin(a * 0.7) * 0.16,
+      headTilt: Math.sin(a * 0.8) * 0.1,
+      headTurn: -0.3,
+      handL: 1, handR: 1,
+      mouthOpen: 0.35 + Math.sin(t * 14) * 0.25,
+    };
+  },
+
+  faire_calin: (t) => {
+    // Les deux bras qui entourent, le buste qui se ferme, la tête posée.
+    const respire = Math.sin(t * 0.9);
+    return {
+      armL: -1.55, armR: 1.55,
+      elbowL: 2.2, elbowR: -2.2,
+      handL: 0.25, handR: 0.25,
+      lean: 0.1,
+      headTilt: 0.22,
+      headTurn: -0.35,
+      squash: 1 + respire * 0.012,
+      mouth: 0.6,
+    };
+  },
+
+  donner_objet: (t, person, rig) => {
+    // Les deux mains tendues vers l'avant, paumes ouvertes. On offre.
+    const k = Math.min(1, rig.poseAge / 0.7);
+    return {
+      armL: -0.7 - k * 0.5, armR: 0.75 + k * 0.5,
+      elbowL: 1.6 - k * 0.5, elbowR: -1.6 + k * 0.5,
+      handL: 1, handR: 1,
+      lean: 0.1 * k,
+      headTilt: 0.08,
+      headTurn: -0.3,
+    };
+  },
+
+  recevoir_objet: (t, person, rig) => {
+    // Les mains en coupe, un peu plus bas, et le buste qui recule à peine.
+    const k = Math.min(1, rig.poseAge / 0.7);
+    return {
+      armL: -0.55 - k * 0.35, armR: 0.6 + k * 0.35,
+      elbowL: 1.9, elbowR: -1.9,
+      handL: 0.9, handR: 0.9,
+      lean: -0.05 * k,
+      headTilt: 0.16,
+      headTurn: -0.28,
+      mouth: 0.5,
+    };
+  },
+
+  jouer_guitare: (t) => {
+    // Une main sur le manche, l'autre qui gratte. Le pied bat la mesure.
+    const gratte = Math.sin(t * 7);
+    return {
+      sit: 1,
+      armL: -1.35, elbowL: 1.85,
+      armR: 0.85 + gratte * 0.16, elbowR: -1.05,
+      handL: 0.55, handR: 0.15,
+      lean: 0.14, headTilt: 0.2,
+      twist: gratte * 0.04,
+      squash: 1 + Math.sin(t * 3.5) * 0.008,
+    };
+  },
+
+  peindre: (t) => {
+    // Devant le chevalet : le bras se recule pour juger, puis revient.
+    const recul = Math.sin(t * 0.55);
+    const touche = Math.sin(t * 5.5);
+    return {
+      armR: 1.5 - Math.max(0, recul) * 0.45,
+      elbowR: -0.6 - Math.max(0, recul) * 0.9 + touche * 0.08,
+      armL: -0.65, elbowL: 1.15,
+      lean: 0.06 - recul * 0.06,
+      headTilt: 0.06,
+      handR: 0.1, handL: 0.35,
+    };
+  },
+
+  dessiner: (t) => ({
+    // Penché très près de la feuille, la main qui hachure vite.
+    sit: 1,
+    armR: 0.9, elbowR: -1.55 + Math.sin(t * 9) * 0.08,
+    armL: -0.9, elbowL: 1.7,
+    lean: 0.32, headTilt: 0.4,
+    handR: 0.1, handL: 0.25,
+    eye: 0.75,
+  }),
+
+  yoga: (t) => ({
+    // Assis en tailleur, paumes sur les genoux, la respiration très lente.
+    sit: 1,
+    bob: -0.06,
+    armL: -0.95, armR: 0.95,
+    elbowL: 1.5, elbowR: -1.5,
+    handL: 0.9, handR: 0.9,
+    lean: -0.03,
+    headTilt: 0.02,
+    eye: 0.15,
+    squash: 1 + Math.sin(t * 0.55) * 0.018,
+  }),
+
+  ecouter_musique: (t) => {
+    // Casque sur les oreilles, tête qui hoche, épaules dans le tempo.
+    const beat = Math.sin(t * 4.4);
+    return {
+      armL: -0.5, armR: 0.5,
+      elbowL: 0.7, elbowR: -0.7,
+      headTilt: beat * 0.12,
+      twist: beat * 0.08,
+      bob: Math.abs(beat) * 0.01,
+      handL: 0.4, handR: 0.4,
+      mouth: 0.6,
+      eye: 0.55,
+    };
+  },
+
+  bricoler_creatif: (t) => {
+    // À l'établi, on assemble : les deux mains proches, minutieuses.
+    const ajuste = Math.sin(t * 3.8);
+    return {
+      armL: -0.85 + ajuste * 0.06, armR: 0.9 - ajuste * 0.06,
+      elbowL: 1.75, elbowR: -1.75,
+      handL: 0.15, handR: 0.15,
+      lean: 0.3, headTilt: 0.34,
+      eye: 0.8,
+    };
+  },
+
+  triste_debout: (t) => ({
+    // Debout, mais éteint : épaules tombées, bras morts le long du corps.
+    armL: -0.12, armR: 0.12,
+    elbowL: 0.15, elbowR: -0.15,
+    handL: 0.1, handR: 0.1,
+    lean: 0.14,
+    headTilt: 0.3,
+    squash: 0.972 + Math.sin(t * 0.8) * 0.006,
+  }),
+
+  fatigue_debout: (t) => {
+    // On tient debout, à peine : le poids passe d'un pied sur l'autre et
+    // la tête part vers l'avant.
+    const bascule = Math.sin(t * 0.5);
+    return {
+      armL: -0.2, armR: 0.2,
+      elbowL: 0.25, elbowR: -0.25,
+      handL: 0.15, handR: 0.15,
+      lean: 0.1 + bascule * 0.04,
+      twist: bascule * 0.06,
+      headTilt: 0.34,
+      squash: 0.965,
+      eye: 0.3,
+    };
+  },
+
+  stresse_debout: (t) => {
+    // Les mains qui ne savent pas où se mettre, le pied qui bat.
+    const nerveux = Math.sin(t * 6.5);
+    return {
+      armL: -0.8 + nerveux * 0.1, armR: 0.85 - nerveux * 0.1,
+      elbowL: 1.85, elbowR: -1.9,
+      handL: 0.5 + nerveux * 0.3, handR: 0.5 - nerveux * 0.3,
+      lean: 0.1,
+      twist: nerveux * 0.05,
+      headTurn: Math.sin(t * 1.7) * 0.3,
+      bob: Math.abs(Math.sin(t * 5)) * 0.004,
+    };
+  },
+
+  malade_debout: (t) => {
+    // Une main sur le ventre, l'autre qui cherche un appui, le corps plié.
+    const vague = Math.sin(t * 0.7);
+    return {
+      armR: 0.95, elbowR: -2.2,
+      armL: -0.55, elbowL: 0.7,
+      lean: 0.24 + vague * 0.05,
+      headTilt: 0.32,
+      squash: 0.955,
+      handR: 0.2, handL: 0.2,
+      eye: 0.35,
+    };
+  },
+
+  ivre_debout: (t) => {
+    // L'équilibre approximatif : le buste dérive, les pieds rattrapent.
+    const derive = Math.sin(t * 1.15);
+    const derive2 = Math.sin(t * 0.73 + 1.4);
+    return {
+      lean: derive * 0.16,
+      twist: derive2 * 0.14,
+      headTilt: derive2 * 0.22,
+      headTurn: derive * 0.3,
+      armL: -0.55 + derive * 0.2, armR: 0.6 - derive2 * 0.2,
+      elbowL: 0.5, elbowR: -0.55,
+      legL: derive * 0.14, legR: -derive * 0.14,
+      handL: 0.5, handR: 0.4,
+      bob: Math.abs(derive) * 0.006,
+      eye: 0.4,
+    };
+  },
+
+  amoureux_debout: (t) => {
+    // Les mains derrière le dos, le poids qui se balance, le regard ailleurs.
+    const balance = Math.sin(t * 0.85);
+    return {
+      armL: -0.25, armR: 0.25,
+      elbowL: 0.9, elbowR: -0.9,
+      handL: 0.3, handR: 0.3,
+      lean: -0.05 + balance * 0.04,
+      twist: balance * 0.08,
+      headTilt: 0.14 + balance * 0.06,
+      headTurn: balance * 0.35,
+      squash: 1 + Math.sin(t * 1.2) * 0.01,
+      mouth: 0.8,
+    };
+  },
+
+  prier: (t) => ({
+    // Les mains jointes à hauteur de poitrine, la tête basse, immobile.
+    armL: -0.9, armR: 0.9,
+    elbowL: 2.05, elbowR: -2.05,
+    handL: 0.35, handR: 0.35,
+    lean: 0.06,
+    headTilt: 0.36,
+    eye: 0.1,
+    squash: 1 + Math.sin(t * 0.6) * 0.01,
+  }),
+
+  se_coucher: (t, person, rig) => {
+    // Le passage debout → couché : on s'assoit au bord, on bascule.
+    const k = Math.min(1, rig.poseAge / 1.1);
+    return {
+      sit: 1 - k * 0.4,
+      lie: k > 0.6 ? (k - 0.6) / 0.4 : 0,
+      bob: -0.03 * k,
+      lean: 0.2 - k * 0.5,
+      armL: -0.8, armR: 0.8,
+      elbowL: 1.2, elbowR: -1.2,
+      headTilt: 0.1,
+      eye: 1 - k * 0.7,
+    };
+  },
+
+  ecouter_porte: (t) => ({
+    // L'oreille collée au battant, une main en appui, le corps immobile.
+    // Le seul mouvement, c'est de retenir sa respiration.
+    armL: -1.35, elbowL: 1.1,
+    armR: 0.35, elbowR: -0.4,
+    lean: 0.18,
+    headTilt: -0.28,
+    headTurn: -0.55,
+    handL: 0.9, handR: 0.2,
+    squash: 1 + Math.sin(t * 0.45) * 0.005,
+    eye: 0.5,
+  }),
+
   releve: (t, person, rig) => {
     // Se relever : on pousse sur les mains, le buste part en avant, puis on
     // se déplie. La pose dure le temps que le lissage mette à la quitter.
@@ -1116,6 +1416,93 @@ export const POSES = {
 };
 
 /**
+ * Les soixante animations de l'asset bible.
+ *
+ * Ces identifiants sont des NOMS DE FICHIERS : c'est sous ces noms que les
+ * planches de sprites sont livrées (assets/personnages/). L'ordre et
+ * l'orthographe viennent de la bible, pas d'ici.
+ *
+ * `fps` et `frames` décrivent la boucle attendue. Un dessinateur qui livre
+ * huit images pour « marcher » sait qu'elles tourneront à douze par seconde,
+ * et le jeu sait où découper la planche.
+ */
+export const BIBLE_ANIMATIONS = [
+  // 01-08 Déplacements
+  ['marcher', 8, 12], ['courir', 8, 16], ['monter_escaliers', 8, 10],
+  ['descendre_escaliers', 8, 10], ['s_asseoir', 6, 10], ['se_lever', 6, 10],
+  ['se_pencher', 4, 8], ['porter_objet', 6, 10],
+  // 09-20 Actions quotidiennes
+  ['cuisiner', 6, 8], ['manger', 6, 6], ['boire', 6, 6], ['lire', 4, 4],
+  ['ecrire', 6, 8], ['telephoner', 6, 6], ['regarder_tele', 4, 4],
+  ['faire_menage', 6, 8], ['faire_lessive', 6, 8], ['bricoler', 6, 10],
+  ['arroser_plantes', 6, 6], ['fumer', 6, 5],
+  // 21-30 Interactions sociales
+  ['parler', 6, 8], ['discuter_anime', 8, 10], ['ecouter', 4, 5],
+  ['se_disputer', 8, 12], ['se_reconcilier', 6, 7], ['embrasser', 4, 4],
+  ['saluer', 6, 10], ['faire_calin', 4, 4], ['donner_objet', 5, 8],
+  ['recevoir_objet', 5, 8],
+  // 31-40 Loisirs et passions
+  ['jouer_video', 6, 8], ['jouer_guitare', 6, 10], ['peindre', 6, 7],
+  ['dessiner', 6, 8], ['faire_sport', 8, 12], ['yoga', 4, 3],
+  ['danser', 8, 12], ['ecouter_musique', 6, 8], ['jardiner', 6, 7],
+  ['bricoler_creatif', 6, 8],
+  // 41-50 États et émotions
+  ['heureux', 4, 5], ['triste', 4, 4], ['en_colere', 6, 12], ['fatigue', 4, 4],
+  ['stresse', 6, 10], ['peur', 6, 12], ['malade', 4, 4], ['ivre', 6, 6],
+  ['amoureux', 4, 5], ['deprime', 4, 3],
+  // 51-60 Animations spéciales
+  ['dormir', 4, 3], ['se_reveiller', 6, 8], ['se_coucher', 6, 8],
+  ['pleurer', 6, 8], ['crise_de_rire', 6, 12], ['prier', 4, 3],
+  ['surprise', 5, 12], ['regarder_fenetre', 4, 4], ['ecouter_porte', 4, 4],
+  ['feter', 8, 12],
+];
+
+/**
+ * De la pose interne au nom de la bible.
+ *
+ * Les poses ci-dessus portent des noms hérités du dessin procédural. La
+ * bible, elle, nomme des fichiers. Cette table est le seul endroit où les
+ * deux se rencontrent — renommer une pose ne casse donc aucun fichier
+ * livré, et une pose sans entrée reste simplement dessinée par le code.
+ */
+export const POSE_TO_ANIMATION = {
+  marche: 'marcher', courir: 'courir', assis: 's_asseoir', releve: 'se_lever',
+  chercher: 'se_pencher', porte: 'porter_objet', courses: 'porter_objet',
+  soulever: 'porter_objet', cuisine: 'cuisiner', mange: 'manger', boit: 'boire',
+  lecture: 'lire', ecrire: 'ecrire', compter_sous: 'ecrire', bureau: 'ecrire',
+  telephone: 'telephoner', scroll: 'telephoner', avachi: 'regarder_tele',
+  menage: 'faire_menage', vaisselle: 'faire_menage', etendre_linge: 'faire_lessive',
+  repasser: 'faire_lessive', bricole: 'bricoler', arroser: 'arroser_plantes',
+  fume: 'fumer', discute: 'parler', ecoute: 'ecouter', colere: 'se_disputer',
+  pointer: 'se_disputer', bagarre: 'se_disputer', croiser_bras: 'en_colere',
+  hausser_epaules: 'se_reconcilier', embrasse: 'embrasser', saluer: 'saluer',
+  bercer: 'faire_calin', joue: 'jouer_video', sport: 'faire_sport',
+  danse: 'danser', jardiner: 'jardiner', peur: 'peur', pleure: 'pleurer',
+  rit: 'crise_de_rire', sursauter: 'surprise', tomber: 'surprise',
+  fenetre: 'regarder_fenetre', balcon: 'regarder_fenetre',
+  frapper_porte: 'ecouter_porte', applaudir: 'feter', couche: 'dormir',
+  allonge: 'dormir', bebe: 'dormir', reveil: 'se_reveiller',
+  bouder: 'deprime', insomnie: 's_asseoir', assis_sol: 's_asseoir',
+  conduit: 's_asseoir', habille: 'se_lever', idle: 'heureux',
+  reflechit: 'triste', douche: 'faire_menage',
+};
+// Les poses qui portent déjà leur nom de bible se mappent sur elles-mêmes.
+for (const [id] of BIBLE_ANIMATIONS) {
+  if (POSES[id] && !POSE_TO_ANIMATION[id]) POSE_TO_ANIMATION[id] = id;
+}
+POSE_TO_ANIMATION.triste_debout = 'triste';
+POSE_TO_ANIMATION.fatigue_debout = 'fatigue';
+POSE_TO_ANIMATION.stresse_debout = 'stresse';
+POSE_TO_ANIMATION.malade_debout = 'malade';
+POSE_TO_ANIMATION.ivre_debout = 'ivre';
+POSE_TO_ANIMATION.amoureux_debout = 'amoureux';
+
+/** Le nom de bible d'une pose, ou null si elle n'en a pas. */
+export function animationOf(pose) {
+  return POSE_TO_ANIMATION[pose] ?? null;
+}
+
+/**
  * La pose visée pour ce que fait l'habitant en ce moment.
  *
  * Une action ne donne pas une pose, elle donne une FAMILLE de poses : on ne
@@ -1125,11 +1512,23 @@ export const POSES = {
  * habitudes au lieu de changer de geste toutes les cinq secondes.
  */
 export function poseFor(person) {
+  // Dans la cage d'escalier, on ne fait rien d'autre que monter ou
+  // descendre. C'est le seul endroit du jeu où la pose est imposée par le
+  // lieu et non par l'occupation.
+  if (person.stairs) {
+    return person.stairs.dir > 0 ? 'monter_escaliers' : 'descendre_escaliers';
+  }
   if (person.walking) return person.running ? 'courir' : 'marche';
 
   // Un sursaut se voit dans tout le corps, pas seulement sur le visage.
   const s = person._startle;
   if (s && s.ttl > s.max - 0.6) return 'sursauter';
+
+  // Un paquet qui change de mains passe avant l'occupation : c'est un
+  // geste court, et c'est justement pendant ce geste qu'on veut le voir.
+  if (person.parcel) {
+    return person.parcel.dir > 0 ? 'recevoir_objet' : 'donner_objet';
+  }
 
   const id = person.action?.id ?? 'rien';
   // Un habitant sans identifiant, ça n'existe pas dans le jeu — mais ça
@@ -1141,8 +1540,12 @@ export function poseFor(person) {
   const trait = (t) => P?.has?.(t) === true;
   const parmi = (...v) => v[n % v.length];
 
+  const act = person.action;
+  // Le tout début d'une action se voit : on ne se réveille pas déjà couché.
+  const debut = act && act.total && act.remaining > act.total - 3;
+
   switch (id) {
-    case 'dormir':
+    case 'dormir': return debut ? 'se_coucher' : 'couche';
     case 'soigner': return 'couche';
     case 'insomnie': return parmi('insomnie', 'balcon', 'insomnie');
     case 'manger': return 'mange';
@@ -1155,37 +1558,58 @@ export function poseFor(person) {
     // Épuisé devant la télé, on finit allongé sur le canapé.
     case 'tv': return (person.needs?.get?.('energie') ?? 70) < 28 ? 'allonge' : 'avachi';
 
-    // On n'écoute pas tous la musique pareil : les expansifs dansent,
-    // les autres hochent la tête, casque sur les oreilles.
+    // On n'écoute pas tous la musique pareil : les expansifs dansent, les
+    // curieux en font eux-mêmes, les autres écoutent au casque.
     case 'musique':
-      return (P?.get?.('extraversion') ?? 0.5) > 0.45 ? 'danse' : 'assis';
+      if ((P?.get?.('extraversion') ?? 0.5) > 0.45) return 'danse';
+      if ((P?.get?.('ouverture') ?? 0.5) > 0.58) return parmi('jouer_guitare', 'ecouter_musique');
+      return parmi('ecouter_musique', 'assis');
     case 'fete': return parmi('danse', 'rit', 'applaudir', 'danse');
     case 'betise': return parmi('danse', 'tomber', 'danse');
-    case 'jeu': return person.age < 12 ? 'assis_sol' : 'joue';
+    case 'jeu': return person.age < 12 ? parmi('assis_sol', 'dessiner', 'assis_sol') : 'joue';
     case 'lire': return parmi('lecture', 'lecture', 'ecrire');
-    case 'sport': return parmi('sport', 'soulever');
-    case 'bricoler': return parmi('bricole', 'soulever', 'bricole');
+    // Le sport en appartement, ce n'est pas que de la fonte : à un étage de
+    // Paris, c'est surtout un tapis déroulé entre la table et le canapé.
+    case 'sport': return parmi('sport', 'soulever', 'yoga');
+
+    // Bricoler couvre deux gestes très différents : réparer, et fabriquer.
+    // Le bricoleur visse, le curieux peint.
+    case 'bricoler':
+      if (trait('bricoleur')) return parmi('bricole', 'bricoler_creatif');
+      if ((P?.get?.('ouverture') ?? 0.5) > 0.6) return parmi('peindre', 'dessiner');
+      return parmi('bricole', 'soulever', 'bricole');
     case 'teletravail': return parmi('bureau', 'ecrire');
     case 'chercher_emploi': return parmi('bureau', 'chercher');
 
     // Un appel sur deux se passe l'écran sous le nez, pas à l'oreille.
     case 'telephoner': return n % 2 === 0 ? 'scroll' : 'telephone';
-    case 'espionner': return parmi('fenetre', 'balcon');
+    // Espionner, c'est deux postes : la fenêtre, et l'oreille contre la
+    // porte palière. Le second est le geste le plus honteux du jeu.
+    case 'espionner': return parmi('ecouter_porte', 'fenetre', 'ecouter_porte', 'balcon');
     case 'courses': return 'courses';
     case 'promener': return parmi('balcon', 'jardiner', 'arroser');
 
-    // Ruminer se décline avec ce qui ronge : le moral, ou les fins de mois.
+    // Ruminer se décline avec ce qui ronge : le moral, la santé, ou les
+    // fins de mois. Le recours au ciel vient quand le corps lâche — c'est
+    // là, et pas ailleurs, qu'on a vu des gens se remettre à prier.
     case 'ruminer':
       if (mood < 22) return 'pleure';
+      if ((person.health ?? 90) < 58 && person.age >= 55) return parmi('prier', 'reflechit');
       return (person.debt ?? 0) > 800 ? 'compter_sous' : 'reflechit';
     case 'boire': return (person.addiction ?? 0) > 0.45 ? 'boit' : parmi('boit', 'compter_sous');
 
-    // On frappe avant d'entrer. Puis on discute.
-    case 'visiter': return parmi('frapper_porte', 'discute', 'discute', 'saluer');
-    case 'reconcilier': return parmi('ecoute', 'hausser_epaules', 'ecoute');
+    // On frappe avant d'entrer. Puis on discute — et les expansifs
+    // discutent avec les mains.
+    case 'visiter':
+      if (debut) return 'frapper_porte';
+      if (trait('genereux')) return parmi('donner_objet', 'discute', 'discuter_anime');
+      if ((P?.get?.('extraversion') ?? 0.5) > 0.58) return parmi('discuter_anime', 'discute');
+      return parmi('discute', 'saluer', 'discute');
+    case 'reconcilier': return parmi('ecoute', 'faire_calin', 'hausser_epaules');
     case 'famille_temps':
-      return trait('protecteur') && person.age < 45 ? parmi('bercer', 'ecoute') : 'ecoute';
-    case 'flirter': return 'embrasse';
+      if (trait('protecteur') && person.age < 45) return parmi('bercer', 'faire_calin', 'ecoute');
+      return parmi('ecoute', 'faire_calin', 'ecoute');
+    case 'flirter': return parmi('embrasse', 'faire_calin');
     case 'sortir': return parmi('saluer', 'marche', 'courses');
     case 'ecole': return parmi('ecrire', 'assis');
     case 'travailler': return parmi('bureau', 'porte', 'ecrire');
@@ -1194,9 +1618,20 @@ export function poseFor(person) {
     case 'plaindre': return parmi('colere', 'frapper_porte', 'pointer');
 
     default: {
-      // Sans occupation, c'est le caractère et l'état qui décident.
+      // Sans occupation, c'est l'état du corps qui parle en premier, le
+      // moral ensuite, le caractère en dernier. L'ordre EST le propos :
+      // quelqu'un de malade et anxieux se tient d'abord comme un malade.
       if ((person.stress ?? 20) > 85) return 'peur';
-      if ((person.addiction ?? 0) > 0.5 && person.age >= 18) return 'fume';
+      if ((person.health ?? 90) < 46) return 'malade_debout';
+      if ((person.addiction ?? 0) > 0.5 && person.age >= 18) {
+        return parmi('ivre_debout', 'fume');
+      }
+      if ((person.needs?.get?.('energie') ?? 70) < 26) return 'fatigue_debout';
+      if (mood < 26) return 'triste_debout';
+      if ((person.stress ?? 20) > 64) return 'stresse_debout';
+      // L'amour se tient debout aussi. Il faut un partenaire ET le moral :
+      // en couple et malheureux, on ne se tient pas comme ça.
+      if (mood > 74 && person.relations?.partner?.()) return 'amoureux_debout';
       if (person.age >= 12 && person.age < 20 && mood < 45) return 'bouder';
       if (trait('anxieux') || trait('rancunier')) return 'croiser_bras';
       if (trait('curieux')) return parmi('balcon', 'chercher', 'idle');

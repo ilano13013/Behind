@@ -389,6 +389,8 @@ export class World {
         p.speech.ttl--;
         if (p.speech.ttl <= 0) p.speech = null;
       }
+      if (p.stairs && --p.stairs.ttl <= 0) p.stairs = null;
+      if (p.parcel && --p.parcel.ttl <= 0) p.parcel = null;
     }
 
     // 4. Décisions : uniquement pour ceux qui n'ont rien en cours.
@@ -443,6 +445,10 @@ export class World {
       }
     }
     if (wasHome && (def.place === 'travail' || def.place === 'dehors' || def.place === 'visite')) {
+      // Deux ticks, soit dix minutes : le temps de descendre trois étages
+      // en cherchant ses clés. C'est court exprès — l'escalier doit rester
+      // un passage, pas une pièce où l'on s'installe.
+      p.stairs = { dir: -1, ttl: 2 };
       this.stairwellEncounter(p);
     }
     if (def.id === 'famille_temps') resolveHouseholdTime(p, this, ctx.householdTargets);
@@ -455,8 +461,13 @@ export class World {
 
   endAction(p) {
     const def = p.action?.def;
+    const dehors = p.location !== 'home';
     p.action = null;
     p.location = 'home';
+    // On rentre en montant. La cage d'escalier était déjà le lieu des
+    // rencontres ; elle devient aussi un lieu qu'on VOIT, avec quelqu'un
+    // dedans, au lieu d'une ombre décorative qui passait toute seule.
+    if (dehors) p.stairs = { dir: 1, ttl: 2 };
     if (def?.party) this.endParty(p);
   }
 

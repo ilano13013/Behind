@@ -46,6 +46,10 @@ export const INTERVENTIONS = [
       }
 
       p.moodBias += 12;
+      // Le paquet se voit. Trois ticks — un quart d'heure — pendant lesquels
+      // l'habitant tient quelque chose dans les mains : sans ça, un cadeau
+      // n'est qu'une ligne de chronique et rien à l'écran.
+      p.parcel = { dir: 1, ttl: 3 };
       p.remember({ kind: 'cadeau', text: 'le paquet sans nom devant la porte', valence: 0.7, strength: 0.65, tick: world.clock.tick, core: true });
       // Un geste reçu donne envie d'en faire un autre : ça se propage.
       const friend = p.relations.all().filter((r) => r.affinity > 0.3)[0];
@@ -54,6 +58,9 @@ export const INTERVENTIONS = [
         if (f?.alive) {
           f.needs.add('plaisir', 10);
           f.relations.get(p.id).adjust({ affinity: 0.06 });
+          // Le paquet change de mains : l'un le tend, l'autre le prend.
+          p.parcel = { dir: -1, ttl: 3 };
+          f.parcel = { dir: 1, ttl: 3 };
         }
       }
       return {

@@ -12,7 +12,7 @@ import { roundRect } from './ink.js';
 import { appearance } from './wardrobe.js';
 import { planFor, propsFor } from './interior-plan.js';
 import { contextFor } from './wardrobe.js';
-import { asset, decorFor, drawCover } from './assets.js';
+import { asset, decorFor, drawDecorSol } from './assets.js';
 
 /** Où se tient quelqu'un en fonction de ce qu'il fait, dans SON appartement. */
 export function zoneFor(person, apt) {
@@ -115,7 +115,7 @@ export function drawInterior(ctx, world, apt, rect, time, opts = {}) {
   // d'être dessinés par-dessus : eux bougent, le décor non.
   const decor = asset(decorFor(apt));
   if (decor) {
-    drawCover(ctx, decor, x, y, w, h);
+    drawDecorSol(ctx, decor, x, y, w, h, floorY);
     // Une image ne s'assombrit pas toute seule à la tombée du jour.
     drawDecorTint(S, world, apt, time);
   } else {
