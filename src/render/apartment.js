@@ -12,6 +12,7 @@ import { roundRect } from './ink.js';
 import { appearance } from './wardrobe.js';
 import { planFor, propsFor } from './interior-plan.js';
 import { contextFor } from './wardrobe.js';
+import { asset, decorFor, drawCover } from './assets.js';
 
 /** Où se tient quelqu'un en fonction de ce qu'il fait, dans SON appartement. */
 export function zoneFor(person, apt) {
@@ -109,40 +110,79 @@ export function drawInterior(ctx, world, apt, rect, time, opts = {}) {
   const V = floorY;
   const S = { ctx, x, y, w, h, U, V, detail, plan, apt, wealth, messy };
 
-  drawWalls(S, wallColor, floorColor);
-  drawBackWindow(S, world, time);
+  // Si un décor dessiné à la main existe pour ce type d'appartement, il
+  // remplace tout le mobilier d'un coup. Les habitants, eux, continuent
+  // d'être dessinés par-dessus : eux bougent, le décor non.
+  const decor = asset(decorFor(apt));
+  if (decor) {
+    drawCover(ctx, decor, x, y, w, h);
+    // Une image ne s'assombrit pas toute seule à la tombée du jour.
+    drawDecorTint(S, world, apt, time);
+  } else {
+    drawWalls(S, wallColor, floorColor);
+    drawBackWindow(S, world, time);
 
-  // Les meubles secondaires d'abord : ils sont contre le mur, et le
-  // mobilier principal doit pouvoir passer devant. Dessinés après, une
-  // penderie recouvrait le lit.
-  if (detail > 0.35) drawExtras(S);
+    // Les meubles secondaires d'abord : ils sont contre le mur, et le
+    // mobilier principal doit pouvoir passer devant. Dessinés après, une
+    // penderie recouvrait le lit.
+    if (detail > 0.35) drawExtras(S);
 
-  // Le mobilier suit le plan : chaque bande est dessinée à sa place.
-  for (const zone of plan.order) {
-    switch (zone) {
-      case 'entree': drawEntrance(S); break;
-      case 'cuisine': drawKitchen(S); break;
-      case 'table': drawTable(S); break;
-      case 'salon': drawLiving(S, time); break;
-      case 'lit': drawBed(S, occupants); break;
-      case 'bain': drawBathroom(S); break;
-      default: break;
+    // Le mobilier suit le plan : chaque bande est dessinée à sa place.
+    for (const zone of plan.order) {
+      switch (zone) {
+        case 'entree': drawEntrance(S); break;
+        case 'cuisine': drawKitchen(S); break;
+        case 'table': drawTable(S); break;
+        case 'salon': drawLiving(S, time); break;
+        case 'lit': drawBed(S, occupants); break;
+        case 'bain': drawBathroom(S); break;
+        default: break;
+      }
     }
-  }
 
-  if (detail > 0.35) {
-    drawWallDecor(S, occupants);
-    drawProps(S, props);
-    for (let i = 0; i < apt.plants; i++) {
-      drawPlant(S.ctx, U(0.11 + i * 0.31 + plan.jitter[i % 8]), V, h * (0.12 + (i % 2) * 0.04));
+    if (detail > 0.35) {
+      drawWallDecor(S, occupants);
+      drawProps(S, props);
+      for (let i = 0; i < apt.plants; i++) {
+        drawPlant(S.ctx, U(0.11 + i * 0.31 + plan.jitter[i % 8]), V, h * (0.12 + (i % 2) * 0.04));
+      }
+      if (messy > 0.3) drawClutter(S, messy);
     }
-    if (messy > 0.3) drawClutter(S, messy);
   }
 
   drawLight(S, world, apt, time);
   drawPeople(S, occupants, time, dt, detail);
 
   ctx.restore();
+}
+
+/**
+ * L'heure sur un décor illustré.
+ *
+ * Le dessin est figé : sans ce calque, un salon éclairé plein soleil reste
+ * éclairé plein soleil à trois heures du matin, et toute la journée de
+ * l'immeuble s'effondre. On repose donc la même lumière que sur le dessin
+ * procédural — bleu la nuit, ambre quand la lampe est allumée.
+ */
+function drawDecorTint(S, world, apt, time) {
+  const { ctx, x, y, w, h } = S;
+  const amb = ambientLight(world.clock.dayFraction);
+  if (amb < 0.85) {
+    ctx.fillStyle = rgba('#0e1626', (0.85 - amb) * 0.5);
+    ctx.fillRect(x, y, w, h);
+  }
+  if (apt.lightOn) {
+    const g = ctx.createRadialGradient(x + w * 0.5, y + h * 0.22, 0,
+      x + w * 0.5, y + h * 0.22, Math.max(w, h) * 0.75);
+    g.addColorStop(0, rgba('#ffce85', 0.3 * (1 - amb * 0.6)));
+    g.addColorStop(1, 'rgba(255,206,133,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, w, h);
+  }
+  if (apt.tvOn) {
+    ctx.fillStyle = rgba('#96cdeb', 0.06 + Math.sin(time * 8 + apt.id) * 0.04);
+    ctx.fillRect(x, y, w, h);
+  }
 }
 
 // --- Enveloppe --------------------------------------------------------------

@@ -9,6 +9,7 @@ import {
   PALETTE, skyColors, ambientLight, shade, rgba, mixHex, pickStable,
 } from './palette.js';
 import { roundRect } from './ink.js';
+import { asset, ambianceFor, drawCover } from './assets.js';
 import { occupantsOf } from './apartment.js';
 import { SPECIAL_UNITS } from '../sim/building.js';
 
@@ -129,14 +130,22 @@ export function drawFacade(ctx, world, layout, time, cache) {
   const sky = skyColors(world.clock.dayFraction, world.clock.season);
 
   // --- Ciel ---
-  const g = ctx.createLinearGradient(0, 0, 0, height);
-  g.addColorStop(0, sky.top);
-  g.addColorStop(1, sky.bot);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, width, height);
+  // Une ambiance peinte remplace le dégradé quand elle existe : c'est un
+  // fond de quartier, pas seulement un ciel. Sinon, le dégradé fait le
+  // travail depuis le début et le fait bien.
+  const ciel = asset(ambianceFor(world));
+  if (ciel) {
+    drawCover(ctx, ciel, 0, 0, width, height);
+  } else {
+    const g = ctx.createLinearGradient(0, 0, 0, height);
+    g.addColorStop(0, sky.top);
+    g.addColorStop(1, sky.bot);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, width, height);
 
-  if (amb < 0.35) drawStars(ctx, width, height, world.seed, amb);
-  drawSunMoon(ctx, world, width, height, amb);
+    if (amb < 0.35) drawStars(ctx, width, height, world.seed, amb);
+    drawSunMoon(ctx, world, width, height, amb);
+  }
 
   // --- Calque dur ---
   if (cache?.canvas) ctx.drawImage(cache.canvas, 0, 0);

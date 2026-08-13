@@ -15,6 +15,7 @@ import {
 } from './render/camera.js';
 import { drawFinale, TOTAL as FINALE_TOTAL } from './render/finale.js';
 import { startle } from './render/anim.js';
+import { loadAssets, assetStatus } from './render/assets.js';
 import { Hud, toast } from './ui/hud.js';
 import { ChronicleView } from './ui/chronicle.js';
 import { Inspector } from './ui/inspector.js';
@@ -94,16 +95,27 @@ function start() {
     for (const id of b.actors ?? []) startle(world.people.get(id), reaction, 4);
   });
 
+  // Les illustrations, s'il y en a. Le chargement ne bloque rien : le jeu
+  // démarre avec son dessin procédural et chaque image prend la place du
+  // dessin dès qu'elle arrive.
+  loadAssets();
+
   resize();
   window.addEventListener('resize', resize);
   installInput();
 
   // Accès au monde depuis la console : très pratique pour regarder
   // l'immeuble vieillir sans attendre.
-  window.behind = { world, camera, layout, avance: (jours) => {
-    const n = jours * 288;
-    for (let i = 0; i < n; i++) world.tick();
-  } };
+  window.behind = {
+    world, camera, layout,
+    avance: (jours) => {
+      const n = jours * 288;
+      for (let i = 0; i < n; i++) world.tick();
+    },
+    // Combien d'illustrations sont effectivement en place. Utile pour
+    // vérifier une livraison d'images sans deviner.
+    images: () => assetStatus(),
+  };
 
   lastFrame = performance.now();
   requestAnimationFrame(frame);

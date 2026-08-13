@@ -8,6 +8,7 @@
     "start": "node tools/serve.js",
     "build": "node tools/build.js",
     "sim": "node tools/simulate.js",
+    "assets": "node tools/check-assets.js",
     "test": "node tools/test-sim.js && node tools/test-anim.js && node tools/test-look.js"
   }
 }

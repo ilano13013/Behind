@@ -247,6 +247,40 @@ bandeau LED du streamer, les toiles retournées contre le mur de l'artiste,
 le tas de chaussures de la colocation, le vélo d'appartement, le tricot du
 retraité.
 
+### Brancher de vrais dessins
+
+Tout Behind est tracé par du code, forme par forme. Ça a une limite dure :
+un trait de code ne remplacera jamais un trait de dessinateur.
+
+`assets/` est la prise. **Elle peut rester vide** — c'est même l'état par
+défaut, et le jeu tourne entièrement sur son dessin procédural. Chaque
+emplacement rempli remplace un morceau de dessin, et un seul fichier suffit
+à voir la différence sur un écran.
+
+```
+node tools/fake-assets.js    des images de test, pour vérifier la tuyauterie
+npm run assets               ce qui est là, ce qui manque
+npm run build                embarque tout en base64 dans behind.html
+```
+
+Cinquante-quatre emplacements, en trois familles :
+
+| Famille | Combien | Ce que ça remplace |
+|---|---|---|
+| `decors/` | 12 | Tout l'intérieur d'un appartement, par type d'habitant |
+| `ambiances/` | 6 | Le ciel et le quartier derrière l'immeuble |
+| `portraits/` | 36 | Le visage d'un habitant dans sa fiche |
+
+Le cahier des charges complet — tailles, cadrages, et la ligne de sol à
+86 % de la hauteur sur laquelle les habitants posent les pieds — est dans
+`assets/README.md`.
+
+Ce qui ne peut PAS être remplacé par une image : les habitants **dans**
+l'appartement. Ils marchent, s'assoient, vieillissent, changent de tenue
+selon la saison, portent douze expressions, et il y en a cent trente qui
+naissent et meurent pendant la partie. Le compromis est celui d'un film
+d'animation : **décor peint, personnages animés.**
+
 ### La météo
 
 Pluie, neige, canicule. Elle est tirée chaque jour selon la saison, elle se
@@ -406,6 +440,7 @@ src/
   render/             façade, intérieurs, personnages, caméra, scène finale
   ui/                 bandeau, chronique, fiche d'habitant, interventions
 tools/                serveur statique, simulation sans écran, tests, planche graphique
+assets/               images dessinées à la main, s'il y en a (facultatif)
 ```
 
 `src/sim/` ne connaît ni le DOM ni le canvas : c'est ce qui permet de faire

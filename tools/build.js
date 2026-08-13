@@ -89,6 +89,60 @@ function visit(file, stack) {
 }
 visit(ENTRY, []);
 
+// --- Images embarquées -------------------------------------------------------
+//
+// Le fichier unique n'a pas le droit d'aller chercher quoi que ce soit sur
+// le disque ni sur le réseau : tout ce qui est dans assets/ devient donc du
+// base64 injecté dans EMBEDDED, la table que src/render/assets.js consulte
+// avant de tenter un chargement réseau.
+//
+// Le dossier peut très bien être vide. C'est même le cas par défaut : le
+// jeu tourne alors entièrement sur son dessin procédural.
+
+const MIME = { '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
+
+function collectAssets() {
+  const dir = path.join(root, 'assets');
+  if (!fs.existsSync(dir)) return { entries: [], bytes: 0 };
+  const entries = [];
+  let bytes = 0;
+  for (const sub of fs.readdirSync(dir)) {
+    const subdir = path.join(dir, sub);
+    if (!fs.statSync(subdir).isDirectory()) continue;
+    for (const f of fs.readdirSync(subdir)) {
+      const ext = path.extname(f).toLowerCase();
+      if (!MIME[ext]) continue;
+      const buf = fs.readFileSync(path.join(subdir, f));
+      bytes += buf.length;
+      // L'identifiant d'emplacement, tel que assets.js le construit :
+      // « decors/gamer.png » → « decor/gamer ».
+      const famille = { decors: 'decor', ambiances: 'ambiance', portraits: 'portrait' }[sub] ?? sub;
+      entries.push([`${famille}/${path.basename(f, ext)}`,
+        `data:${MIME[ext]};base64,${buf.toString('base64')}`]);
+    }
+  }
+  return { entries, bytes };
+}
+
+const assets = collectAssets();
+
+// Le manifeste que lit la version « serveur » du jeu. On le réécrit ici
+// aussi : construire après avoir ajouté une image et se retrouver avec un
+// manifeste périmé serait le genre de piège qu'on ne voit pas.
+{
+  const dir = path.join(root, 'assets');
+  if (fs.existsSync(dir)) {
+    const liste = assets.entries.map(([id]) => {
+      const famille = id.split('/')[0];
+      const sub = { decor: 'decors', ambiance: 'ambiances', portrait: 'portraits' }[famille] ?? famille;
+      const base = id.split('/').slice(1).join('/');
+      const ext = fs.existsSync(path.join(dir, sub, `${base}.webp`)) ? '.webp' : '.png';
+      return { id, file: `${sub}/${base}${ext}` };
+    });
+    fs.writeFileSync(path.join(dir, 'manifest.json'), `${JSON.stringify(liste, null, 2)}\n`);
+  }
+}
+
 // --- Assemblage du script ---------------------------------------------------
 
 const chunks = [
@@ -105,6 +159,16 @@ for (const file of order) {
   for (const name of mod.exports) chunks.push(`__x.${name} = ${name};`);
   chunks.push('return __x;');
   chunks.push('})();');
+}
+// Les images entrent APRÈS l'évaluation des modules : EMBEDDED est un objet
+// exporté, on le remplit, et le premier appel à loadAssets() les trouve.
+if (assets.entries.length) {
+  chunks.push('\n/* images embarquées */');
+  chunks.push('Object.assign(__m["src/render/assets.js"].EMBEDDED, {');
+  for (const [id, uri] of assets.entries) {
+    chunks.push(`${JSON.stringify(id)}: ${JSON.stringify(uri)},`);
+  }
+  chunks.push('});');
 }
 chunks.push('})();');
 const script = chunks.join('\n');
@@ -154,4 +218,7 @@ fs.writeFileSync(OUT, banner + html, 'utf8');
 const ko = (n) => `${(n / 1024).toFixed(0)} ko`;
 console.log(`\nbehind.html écrit — ${ko(Buffer.byteLength(banner + html))}`);
 console.log(`  ${order.length} modules assemblés, CSS et icônes compris`);
+console.log(assets.entries.length
+  ? `  ${assets.entries.length} images embarquées — ${ko(assets.bytes)} avant base64`
+  : '  aucune image dans assets/ : le jeu tourne sur son dessin procédural');
 console.log(`  ordre d'évaluation : ${order[0]} → … → ${order[order.length - 1]}\n`);

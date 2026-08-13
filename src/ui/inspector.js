@@ -9,6 +9,7 @@ import { linkLabel } from '../sim/relations.js';
 import { traitInfo, traitLabel } from '../sim/traits.js';
 import { jobLabel } from '../content/jobs.js';
 import { g } from '../core/text.js';
+import { ASSET_BASE, EMBEDDED, portraitFor } from '../render/assets.js';
 
 export class Inspector {
   constructor(world, { onSelectPerson, onClose }) {
@@ -107,6 +108,19 @@ export class Inspector {
     if (!open) {
       box.appendChild(el('div', 'apt-sub', 'Cliquer sur le nom pour tout voir.'));
       return box;
+    }
+
+    // Le portrait dessiné, s'il existe. Sinon la fiche reste telle qu'elle
+    // a toujours été : rien ne manque, il y a seulement quelque chose en
+    // moins.
+    const portrait = portraitFor(p);
+    if (portrait) {
+      const fig = el('div', 'portrait');
+      const img = document.createElement('img');
+      img.src = EMBEDDED[portrait] ?? `${ASSET_BASE}portraits/${portrait.split('/')[1]}.png`;
+      img.alt = '';
+      fig.appendChild(img);
+      box.appendChild(fig);
     }
 
     // Caractère.

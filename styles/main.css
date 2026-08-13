@@ -678,3 +678,20 @@ body.finale { background: #000; }
   .speed-card button[data-speed="3"] { display: none; }
   #hud { gap: 4px; }
 }
+
+/* Portrait dessiné dans la fiche. Absent tant qu'aucune image n'est livrée :
+   la règle ne s'applique alors à rien, et la fiche garde sa mise en page. */
+.portrait {
+  margin: 10px 0 4px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, .14);
+  aspect-ratio: 1 / 1;
+  max-width: 168px;
+}
+.portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
