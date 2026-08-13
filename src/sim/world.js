@@ -6,6 +6,34 @@
 
 import { RNG } from '../core/rng.js';
 import { Clock, TICKS_PER_DAY, DAYS_PER_MONTH } from '../core/clock.js';
+
+/** Le rez-de-chaussée porte un nom, comme tout le monde dans l'immeuble. */
+export const COMMERCE_NOMS = {
+  cafe: 'le café du coin',
+  pharmacie: 'la pharmacie',
+  boulangerie: 'la boulangerie',
+  tabac: 'le tabac-presse',
+  salon_coiffure: 'le salon de coiffure',
+  laverie: 'la laverie',
+  salle_de_sport: 'la salle de sport',
+  supermarche: 'la supérette',
+  ecole: 'l\'école, au rez-de-chaussée',
+  bibliotheque: 'la bibliothèque de quartier',
+};
+
+/** Ce qu'on y fait, et ce que ça change pour l'immeuble. */
+export const COMMERCE_PHRASES = {
+  cafe: 'Le comptoir voit passer tout l\'immeuble. Rien n\'y reste secret longtemps.',
+  pharmacie: 'On y va pour un médicament et on en ressort avec des nouvelles.',
+  boulangerie: 'À sept heures, l\'odeur monte jusqu\'au quatrième.',
+  tabac: 'Le journal, les jeux, et deux ou trois avis sur tout.',
+  salon_coiffure: 'On y parle plus qu\'on n\'y coupe.',
+  laverie: 'On y attend. C\'est là que les voisins finissent par se parler.',
+  salle_de_sport: 'Ouverte tôt, fermée tard. On y croise toujours les mêmes.',
+  supermarche: 'Ouvert jusqu\'à minuit. C\'est le frigo de tout le bâtiment.',
+  ecole: 'Les cris de la récréation traversent trois étages, deux fois par jour.',
+  bibliotheque: 'Le seul endroit calme de la rue.',
+};
 import { EventBus, Chronicle, makeBeat, TONE } from '../core/events.js';
 import { makeApartments, populateApartment, seedHistory, SPECIAL_UNITS } from './building.js';
 import { buildContext, chooseAction, ACTION_BY_ID } from './actions.js';
@@ -33,7 +61,14 @@ export class World {
     this.clock = new Clock(opts.startTick ?? 7 * 12);
     this.bus = new EventBus();
     this.chronicle = new Chronicle();
-    this.weather = { id: 'clair', intensity: 0.5 };
+    // L'âge du bâtiment au premier jour. Un immeuble neuf et un immeuble
+    // de quarante-cinq ans ne racontent pas la même chose, et la partie
+    // ajoute ses années à ce compteur-là.
+    this.buildingAge = this.rng.fork('batiment').int(0, 45);
+    this.weather = { id: 'clair', intensity: 0.5, veille: 'clair' };
+    this.fete = null;
+    this.moonFull = false;
+    this.apocalypse = false;
 
     this.floors = opts.floors ?? 11;
     this.cols = opts.cols ?? 8;
@@ -155,7 +190,9 @@ export class World {
     if (!apt) return '?';
     if (apt.special === SPECIAL_UNITS.LOGE) return 'la loge';
     if (apt.special === SPECIAL_UNITS.HALL) return 'le hall';
-    if (apt.special === SPECIAL_UNITS.COMMERCE) return 'le local commercial';
+    if (apt.special === SPECIAL_UNITS.COMMERCE) {
+      return COMMERCE_NOMS[apt.commerce] ?? 'le local commercial';
+    }
     const side = FLOOR_SIDES[apt.col % FLOOR_SIDES.length];
     if (apt.floor === 0) return `rez-de-chaussée ${side}`;
     return `${apt.floor}${apt.floor === 1 ? 'er' : 'e'} ${side}`;
@@ -238,6 +275,9 @@ export class World {
   }
 
   addResident(p, aptId) {
+    // Depuis quand vit-on ici ? C'est ce qui distingue un foyer d'un
+    // meublé de passage, et c'est invérifiable sans le noter au moment même.
+    if (p.apartment !== aptId) p.movedInTick = this.clock.tick;
     p.apartment = aptId;
     p.present = true;
     this.people.set(p.id, p);
@@ -567,39 +607,111 @@ export class World {
   // ------------------------------------------------------------- lent
 
   /**
-   * La météo du jour — les ambiances de la planche : nuit calme et soirée
-   * viennent du cycle du ciel, celles-ci viennent du calendrier. Elle se
-   * voit sur la façade et se sent un peu dans les corps.
+   * Le temps qu'il fait, et ce qui se fête.
+   *
+   * Ce n'est pas de la décoration : les vingt-cinq ambiances de l'asset
+   * bible doivent toutes pouvoir arriver, sinon les images correspondantes
+   * ne seraient jamais affichées. On tire donc un vrai temps par saison,
+   * on tient le calendrier des fêtes, et on suit la lune.
+   *
+   * Et ça se sent dans les corps : la canicule use, le froid épuise, la
+   * pluie enferme, la pollution abîme, une fête remonte tout le monde.
    */
   weatherStep() {
-    const s = this.clock.season;
+    const s = this.clock.season;         // 0 hiver 1 printemps 2 été 3 automne
     const r = this.rng.fork(`meteo-${this.clock.day}`);
-    let next = 'clair';
-    if (s === 0) next = r.chance(0.2) ? 'neige' : r.chance(0.32) ? 'pluie' : 'clair';
-    else if (s === 2) next = r.chance(0.16) ? 'canicule' : r.chance(0.1) ? 'pluie' : 'clair';
-    else next = r.chance(0.28) ? 'pluie' : 'clair';
+    const avant = this.weather?.id ?? 'clair';
 
-    const before = this.weather?.id ?? 'clair';
-    this.weather = { id: next, intensity: 0.5 + r.float(0, 0.5) };
-    if (next !== before && next !== 'clair' && this.canBeat('meteo', 'jour', 2)) {
+    // Deux jours sur trois, il ne se passe rien dans le ciel — et c'est
+    // volontaire. Un immeuble sous la tempête tous les trois jours ne serait
+    // plus un immeuble, ce serait un décor de catastrophe, et les habitants
+    // vivraient sous une pluie de malus permanente.
+    const sacs = [
+      ['grand_froid', 'grand_froid', 'neige', 'petite_neige', 'petite_neige',
+        'brouillard', 'pluie', 'pluie', 'vent_fort', 'tempete'],
+      ['pluie', 'pluie', 'pluie', 'orage', 'vent_fort', 'brouillard', 'pollution'],
+      ['canicule', 'canicule', 'orage', 'pluie', 'pluie', 'pollution'],
+      ['pluie', 'pluie', 'vent_fort', 'vent_fort', 'brouillard', 'tempete', 'pollution'],
+    ];
+    let id = r.chance(0.64) ? 'clair' : r.pick(sacs[s]);
+
+    // Un arc-en-ciel ne s'invente pas : il faut qu'il ait plu la veille.
+    if (id === 'clair' && ['pluie', 'orage'].includes(avant) && r.chance(0.35)) {
+      id = 'arc_en_ciel';
+    }
+
+    this.weather = { id, intensity: 0.5 + r.float(0, 0.5), veille: avant };
+
+    // La lune : un cycle de vingt-neuf jours et demi, arrondi à l'immeuble.
+    this.moonFull = this.clock.day % 30 === 0;
+
+    // Le calendrier. Deux jours par mois, donc une fête tient une journée.
+    const m = this.clock.monthIndex;
+    const jour = this.clock.day % DAYS_PER_MONTH;
+    this.fete = null;
+    if (m === 11 && jour === 1) this.fete = 'noel';
+    else if (m === 0 && jour === 0) this.fete = 'nouvel_an';
+    else if (m === 9 && jour === 1) this.fete = 'halloween';
+    else if (m === 6 && jour === 0) this.fete = 'feu_artifice';
+
+    // Le ciel de fin du monde : une fois par décennie, sans explication.
+    // Personne n'en parle le lendemain.
+    this.apocalypse = this.rng.fork(`ciel-${this.clock.day}`).chance(0.004);
+
+    if (id !== avant && id !== 'clair' && this.canBeat('meteo', 'jour', 2)) {
       const textes = {
         pluie: 'Il pleut sur le quartier. Les fenêtres se ferment une à une.',
+        orage: 'Ça tonne. Quelqu\'un a débranché la télé, par précaution.',
         neige: 'Il neige. Même le chat du rez-de-chaussée est rentré.',
+        petite_neige: 'Trois flocons, et tout le monde est à sa fenêtre.',
+        brouillard: 'Le brouillard a mangé l\'immeuble d\'en face.',
         canicule: 'Canicule. Tout l\'immeuble vit volets mi-clos.',
+        grand_froid: 'Grand froid. On entend les radiateurs travailler.',
+        vent_fort: 'Le vent secoue les volets depuis ce matin.',
+        tempete: 'Tempête. Une poubelle a traversé la rue toute seule.',
+        pollution: 'L\'air est lourd. On respire le quartier plus qu\'on ne le voit.',
+        arc_en_ciel: 'Un arc-en-ciel, juste au-dessus du toit. Deux personnes l\'ont vu.',
+      };
+      if (textes[id]) {
+        this.beat({
+          kind: 'meteo.change', text: textes[id],
+          tone: TONE.QUOTIDIEN, weight: 0.3, actors: [], apartment: null,
+        });
+      }
+    }
+    if (this.fete && this.canBeat('fete-calendrier', this.fete, 20)) {
+      const textes = {
+        noel: 'C\'est Noël. Ça sent la cuisine dans toute la cage d\'escalier.',
+        nouvel_an: 'Minuit est passé. On s\'embrasse sur les paliers.',
+        halloween: 'Des enfants déguisés sonnent à toutes les portes. Presque toutes ouvrent.',
+        feu_artifice: 'Le feu d\'artifice. Tout l\'immeuble est aux fenêtres, en même temps.',
       };
       this.beat({
-        kind: 'meteo.change', text: textes[next],
-        tone: TONE.QUOTIDIEN, weight: 0.3, actors: [], apartment: null,
+        kind: 'fete.calendrier', text: textes[this.fete],
+        tone: TONE.TENDRE, weight: 0.45, actors: [], apartment: null,
       });
     }
-    // La météo se sent : la canicule use, la pluie enferme.
-    if (next === 'canicule') {
-      for (const p of this.livingPeople()) {
-        p.needs.add('confort', -5);
-        p.stress = Math.min(100, p.stress + 2);
+
+    // --- Ce que le temps fait aux gens ---
+    const gens = this.livingPeople();
+    if (id === 'canicule') {
+      for (const p of gens) { p.needs.add('confort', -5); p.stress = Math.min(100, p.stress + 2); }
+    } else if (id === 'grand_froid') {
+      for (const p of gens) { p.needs.add('confort', -4); p.needs.add('energie', -2); }
+    } else if (id === 'pollution') {
+      for (const p of gens) { p.health = Math.max(0, p.health - 0.3); p.needs.add('plaisir', -1); }
+    } else if (['pluie', 'orage', 'neige', 'tempete'].includes(id)) {
+      for (const p of gens) p.needs.add('plaisir', -2);
+    } else if (id === 'arc_en_ciel') {
+      for (const p of gens) p.mood = Math.min(100, p.mood + 2);
+    }
+    // Une fête, ça remonte tout un immeuble d'un coup. C'est bien le seul
+    // évènement de ce jeu qui touche tout le monde dans le même sens.
+    if (this.fete) {
+      for (const p of gens) {
+        p.mood = Math.min(100, p.mood + 5);
+        p.needs.add('social', 6);
       }
-    } else if (next === 'pluie' || next === 'neige') {
-      for (const p of this.livingPeople()) p.needs.add('plaisir', -2);
     }
   }
 

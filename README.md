@@ -206,7 +206,7 @@ rayon :
 | Couvre-chefs | 11, dont trois qu'on ne croise presque jamais |
 | Lunettes | 8, de vue et de soleil |
 | Motifs | uni, rayures, carreaux, pois |
-| Décors intérieurs | **12** |
+| Décors intérieurs | **40** |
 
 Le tirage est stable (il découle de l'identifiant de l'habitant, donc il ne
 change jamais) mais il n'est **pas aveugle** : l'âge, le genre, le métier et
@@ -263,13 +263,22 @@ npm run assets               ce qui est là, ce qui manque
 npm run build                embarque tout en base64 dans behind.html
 ```
 
-Cinquante-quatre emplacements, en trois familles :
+**Deux cent cinquante et un emplacements**, en cinq familles :
 
 | Famille | Combien | Ce que ça remplace |
 |---|---|---|
-| `decors/` | 12 | Tout l'intérieur d'un appartement, par type d'habitant |
-| `ambiances/` | 6 | Le ciel et le quartier derrière l'immeuble |
-| `portraits/` | 36 | Le visage d'un habitant dans sa fiche |
+| `decors/` | **40** | Tout l'intérieur d'un appartement, par type d'habitant |
+| `ambiances/` | **25** | Le ciel et le quartier derrière l'immeuble |
+| `portraits/` | **170** | Le visage d'un habitant dans sa fiche |
+| `commerces/` | **10** | Le rez-de-chaussée, où l'on peut entrer |
+| `batiment/` | **6** | Un calque d'usure, selon l'âge de l'immeuble |
+
+**Aucune de ces images n'est décorative, et aucune n'est inatteignable.**
+Le décor d'un appartement est *déduit* de qui l'habite — un tatoueur a un
+atelier, un accumulateur ne voit plus son sol, un logement sans locataire a
+ses meubles sous un drap. `npm test` simule plusieurs années d'immeuble et
+vérifie que les quarante sortent au moins une fois : on ne fait pas payer
+un dessin que personne ne verrait jamais.
 
 Le cahier des charges complet — tailles, cadrages, et la ligne de sol à
 86 % de la hauteur sur laquelle les habitants posent les pieds — est dans
@@ -277,32 +286,31 @@ Le cahier des charges complet — tailles, cadrages, et la ligne de sol à
 
 Ce qui ne peut PAS être remplacé par une image : les habitants **dans**
 l'appartement. Ils marchent, s'assoient, vieillissent, changent de tenue
-selon la saison, portent douze expressions, et il y en a cent trente qui
+selon la saison, portent leurs expressions, et il y en a cent trente qui
 naissent et meurent pendant la partie. Le compromis est celui d'un film
 d'animation : **décor peint, personnages animés.**
 
-### La météo
+### La météo, le calendrier, la lune
 
-Pluie, neige, canicule. Elle est tirée chaque jour selon la saison, elle se
-voit sur la façade (des rayures obliques, des flocons qui dérivent, un air
-qui tremble au ras du bitume) et elle se **sent** : la canicule use et
-stresse, la pluie enferme. Un changement de temps entre dans la chronique
-comme le reste.
+Douze temps différents, tirés chaque jour selon la saison : pluie, orage,
+neige, petite neige, brouillard, canicule, grand froid, vent fort, tempête,
+pollution, et l'arc-en-ciel qui ne peut arriver **que** le lendemain d'une
+pluie. Deux jours sur trois, il ne se passe rien dans le ciel — un immeuble
+sous la tempête tous les trois jours ne serait plus un immeuble, ce serait
+un décor de catastrophe, et les habitants vivraient sous une pluie de malus
+permanente.
 
-### Douze expressions
+Ça se voit sur la façade, et ça se **sent** : la canicule use et stresse,
+le grand froid épuise, la pollution abîme la santé, la pluie enferme,
+l'arc-en-ciel remonte tout le monde de deux points.
 
-Neutre, content, surpris, choqué, en colère, triste, rêveur, énergique,
-méfiant, effrayé, amoureux, fatigué. Chacune n'est qu'un jeu de valeurs sur
-quatre canaux — sourcils, coin interne du sourcil, courbe de la bouche,
-ouverture — plus parfois un mouvement de tête, et le lissage enchaîne le
-reste sans qu'aucune transition soit écrite.
+Quatre fêtes tombent chaque année — Noël, le nouvel an, Halloween, le feu
+d'artifice — et ce sont les seuls évènements du jeu qui touchent tout
+l'immeuble dans le même sens. La lune est pleine tous les trente jours. Et
+une fois par décennie environ, le ciel prend une couleur dont personne ne
+reparle le lendemain.
 
-Une expression de surprise ne peut pas naître de l'état intérieur : personne
-ne devient surpris tout seul. C'est le monde qui la déclenche — un
-évènement grave provoque un sursaut chez ses acteurs, qui le portent
-quelques secondes avant de retrouver leur humeur.
-
-### Comment un corps est construit
+### Comment un corps est construit### Comment un corps est construit
 
 Un membre entier est **un seul tracé**. C'est la règle qui décide de tout :
 tant que la cuisse et le mollet étaient deux capsules autonomes, chaque

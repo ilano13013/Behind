@@ -9,7 +9,7 @@ import {
   PALETTE, skyColors, ambientLight, shade, rgba, mixHex, pickStable,
 } from './palette.js';
 import { roundRect } from './ink.js';
-import { asset, ambianceFor, drawCover } from './assets.js';
+import { asset, ambianceFor, batimentFor, drawCover } from './assets.js';
 import { occupantsOf } from './apartment.js';
 import { SPECIAL_UNITS } from '../sim/building.js';
 
@@ -149,6 +149,21 @@ export function drawFacade(ctx, world, layout, time, cache) {
 
   // --- Calque dur ---
   if (cache?.canvas) ctx.drawImage(cache.canvas, 0, 0);
+
+  // --- L'âge de l'immeuble ---
+  // Un calque de taches et de coulures posé sur la maçonnerie, d'autant
+  // plus marqué que les années passent. Il se cale sur le rectangle du
+  // bâtiment, quelle que soit sa géométrie.
+  const usure = asset(batimentFor(world));
+  if (usure) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(layout.x, layout.y, layout.w, layout.h);
+    ctx.clip();
+    ctx.globalAlpha = 0.55;
+    drawCover(ctx, usure, layout.x, layout.y, layout.w, layout.h);
+    ctx.restore();
+  }
 
   // --- Fenêtres vivantes ---
   for (const apt of world.apartments) {

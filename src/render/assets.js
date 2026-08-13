@@ -52,34 +52,92 @@ for (const a of ARCHETYPES) {
 }
 
 // --- Ambiances de façade ---
-// Un calque posé derrière l'immeuble : le ciel et le quartier. Six moments.
-for (const [id, role] of [
-  ['nuit', 'Nuit calme sur le quartier'],
+// Le calque posé derrière l'immeuble : le ciel et le quartier. Vingt-cinq
+// moments, et chacun doit pouvoir arriver — une image qu'aucun état du
+// monde ne peut déclencher ne serait jamais vue.
+export const AMBIANCES = [
+  ['jour_clair', 'Plein jour, ciel dégagé'],
   ['soiree', 'Début de soirée, lumières chaudes'],
+  ['nuit', 'Nuit calme sur le quartier'],
   ['aube', 'Aube, ciel rose et bleu'],
+  ['coucher_soleil', 'Coucher de soleil sur les toits'],
   ['pluie', 'Jour pluvieux, gris et lavé'],
+  ['orage', 'Orage, éclairs au-dessus des toits'],
+  ['neige', 'Il neige sur le quartier'],
+  ['petite_neige', 'Quelques flocons, à peine'],
+  ['brouillard', 'Brouillard : l\'immeuble d\'en face a disparu'],
   ['canicule', 'Canicule, lumière blanche écrasante'],
-  ['hiver', 'Hiver, ciel bas et froid'],
-]) {
+  ['grand_froid', 'Grand froid, ciel dur et net'],
+  ['vent_fort', 'Vent fort, nuages qui filent'],
+  ['tempete', 'Tempête, ciel noir en plein jour'],
+  ['pollution', 'Air lourd, horizon jaune'],
+  ['arc_en_ciel', 'Un arc-en-ciel après la pluie'],
+  ['coupure_courant', 'Panne de courant : tout le quartier est noir'],
+  ['pleine_lune', 'Pleine lune, très basse'],
+  ['feu_artifice', 'Feu d\'artifice au-dessus des toits'],
+  ['noel', 'Noël, guirlandes aux fenêtres'],
+  ['halloween', 'Halloween, citrouilles et lumières orange'],
+  ['nouvel_an', 'Nouvel an, minuit passé'],
+  ['printemps', 'Printemps, premiers arbres en fleur'],
+  ['automne', 'Automne, feuilles et lumière rase'],
+  ['apocalyptique', 'Un ciel qu\'on ne reverra pas'],
+];
+for (const [id, role] of AMBIANCES) {
   slot(`ambiance/${id}`, { dir: 'ambiances', name: id, w: 1920, h: 1080, role });
 }
 
 // --- Portraits ---
 // Le visage d'un habitant dans sa fiche. Ce ne sont pas des portraits de
 // personnages nommés : c'est une TROUPE. Chaque habitant se voit attribuer
-// un comédien de son gabarit, une fois pour toutes. Six portraits par
-// gabarit suffisent à ce qu'on ne voie pas la répétition dans une fiche
-// qu'on ouvre un habitant à la fois.
-export const PORTRAITS_PAR_GABARIT = 6;
-for (const morpho of Object.keys(MORPHO)) {
-  for (let i = 1; i <= PORTRAITS_PAR_GABARIT; i++) {
-    const n = String(i).padStart(2, '0');
-    slot(`portrait/${morpho}-${n}`, {
-      dir: 'portraits', name: `${morpho}-${n}`, w: 512, h: 512,
+// un comédien de son gabarit, une fois pour toutes. Les effectifs suivent
+// la pyramide des âges d'un immeuble : beaucoup d'adultes, moins d'enfants.
+export const PORTRAITS_PAR_GABARIT = {
+  enfant: 20, ado: 20, homme: 40, femme: 40, mature: 25, senior: 25,
+};
+for (const [morpho, n] of Object.entries(PORTRAITS_PAR_GABARIT)) {
+  for (let i = 1; i <= n; i++) {
+    const num = String(i).padStart(2, '0');
+    slot(`portrait/${morpho}-${num}`, {
+      dir: 'portraits', name: `${morpho}-${num}`, w: 512, h: 512,
       role: `Portrait ${MORPHO[morpho].label.toLowerCase()} n°${i}, buste, fond transparent`,
       morpho,
     });
   }
+}
+
+// --- Commerces ---
+// Le rez-de-chaussée. L'immeuble a un local commercial ; on doit pouvoir
+// entrer dedans comme dans un appartement.
+export const COMMERCES = [
+  ['cafe', 'Café de quartier'],
+  ['pharmacie', 'Pharmacie'],
+  ['boulangerie', 'Boulangerie'],
+  ['tabac', 'Bureau de tabac'],
+  ['salon_coiffure', 'Salon de coiffure'],
+  ['laverie', 'Laverie automatique'],
+  ['salle_de_sport', 'Salle de sport'],
+  ['supermarche', 'Supérette'],
+  ['ecole', 'Salle de classe'],
+  ['bibliotheque', 'Bibliothèque de quartier'],
+];
+for (const [id, role] of COMMERCES) {
+  slot(`commerce/${id}`, { dir: 'commerces', name: id, w: 1600, h: 900, role: `${role}, vu en coupe, sans personnage` });
+}
+
+// --- Vieillissement du bâtiment ---
+// L'immeuble se dégrade pendant la partie. Six états, du neuf au très usé.
+export const AGES_BATIMENT = [0, 5, 15, 25, 40, 60];
+for (const an of AGES_BATIMENT) {
+  slot(`batiment/${an}ans`, {
+    dir: 'batiment', name: `${an}ans`, w: 1920, h: 1080,
+    // Un calque d'usure, PAS une façade complète : la géométrie de
+    // l'immeuble est tirée au sort à chaque partie (étages, colonnes), donc
+    // une façade peinte en entier ne tomberait jamais en face. Ce qu'on
+    // pose par-dessus, ce sont des traces.
+    role: an === 0 ? 'Calque d\'usure : rien, façade ravalée (peut rester vide)'
+      : `Calque d'usure après ${an} ans — taches, coulures, fissures, mousse. Fond transparent.`,
+    age: an,
+  });
 }
 
 // --- État du chargement ------------------------------------------------------
@@ -169,7 +227,7 @@ export function portraitFor(person) {
   if (person._portrait !== undefined) return person._portrait;
   const morpho = person._look?.morpho ?? 'homme';
   const dispo = [];
-  for (let i = 1; i <= PORTRAITS_PAR_GABARIT; i++) {
+  for (let i = 1; i <= (PORTRAITS_PAR_GABARIT[morpho] ?? 0); i++) {
     const id = `portrait/${morpho}-${String(i).padStart(2, '0')}`;
     if (images.has(id)) dispo.push(id);
   }
@@ -182,21 +240,59 @@ export function portraitFor(person) {
   return choisi;
 }
 
-/** L'ambiance de façade qui correspond à l'heure et au temps qu'il fait. */
+/**
+ * L'ambiance de façade du moment.
+ *
+ * L'ordre est une priorité, et il dit ce qui compte : une panne de courant
+ * passe avant une fête, une fête avant la météo, la météo avant l'heure.
+ * Ce qui frappe l'immeuble l'emporte sur ce qu'il traverse.
+ */
 export function ambianceFor(world) {
+  const c = world.clock;
+
+  // 1. Ce qui arrache tout le reste.
+  if (world.apocalypse) return 'ambiance/apocalyptique';
+  if (world.forcedBlackoutDay === c.day && c.isNight) return 'ambiance/coupure_courant';
+
+  // 2. Ce qui se fête. Une seule journée par an, et on la voit.
+  if (world.fete && (c.isNight || c.hour >= 17)) return `ambiance/${world.fete}`;
+
+  // 3. Le temps qu'il fait. Il gagne sur l'heure : sous la tempête, on ne
+  //    distingue plus l'aube du crépuscule.
   const meteo = world.weather?.id ?? 'clair';
-  if (meteo === 'pluie' || meteo === 'neige') return 'ambiance/pluie';
-  if (meteo === 'canicule') return 'ambiance/canicule';
-  const h = world.clock.hour;
+  if (meteo !== 'clair' && meteo !== 'arc_en_ciel') return `ambiance/${meteo}`;
+  if (meteo === 'arc_en_ciel' && !c.isNight) return 'ambiance/arc_en_ciel';
+
+  // 4. La lune, seulement la nuit — sinon elle ne veut rien dire.
+  if (world.moonFull && c.isNight) return 'ambiance/pleine_lune';
+
+  // 5. L'heure.
+  const h = c.hour;
   if (h >= 22 || h < 5) return 'ambiance/nuit';
   if (h < 8) return 'ambiance/aube';
-  if (h >= 19) return 'ambiance/soiree';
-  if (world.clock.season === 0) return 'ambiance/hiver';
-  return null;   // plein jour ordinaire : le ciel dégradé fait très bien.
+  if (h >= 20) return 'ambiance/nuit';
+  if (h >= 18) return 'ambiance/coucher_soleil';
+  if (h >= 16) return 'ambiance/soiree';
+
+  // 6. Plein jour : la saison a le dernier mot.
+  if (c.season === 1) return 'ambiance/printemps';
+  if (c.season === 3) return 'ambiance/automne';
+  return 'ambiance/jour_clair';
 }
 
-/** Le décor d'un appartement, d'après ce que la pièce raconte déjà. */
+/** L'usure de la façade, d'après l'âge de l'immeuble dans cette partie. */
+export function batimentFor(world) {
+  // L'immeuble avait déjà un âge au premier jour : la partie ne fait
+  // qu'ajouter à un compteur qui tournait avant elle.
+  const ans = (world.buildingAge ?? 30) + world.clock.year;
+  let choisi = AGES_BATIMENT[0];
+  for (const a of AGES_BATIMENT) if (a <= ans) choisi = a;
+  return `batiment/${choisi}ans`;
+}
+
+/** Le décor d'un lieu — appartement ou commerce du rez-de-chaussée. */
 export function decorFor(apt) {
+  if (apt.commerce) return `commerce/${apt.commerce}`;
   return apt._archetype ? `decor/${apt._archetype}` : null;
 }
 

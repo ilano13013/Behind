@@ -27,7 +27,10 @@ function dimensions(buf, ext) {
   return null;
 }
 
-const familles = { decor: 'decors', ambiance: 'ambiances', portrait: 'portraits' };
+const familles = {
+  decor: 'decors', ambiance: 'ambiances', portrait: 'portraits',
+  commerce: 'commerces', batiment: 'batiment',
+};
 const groupes = new Map();
 const manifeste = [];
 let presents = 0;

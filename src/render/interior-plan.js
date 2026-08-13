@@ -84,59 +84,206 @@ export function planFor(apt) {
 }
 
 /**
- * Les douze décors de la planche.
+ * Les quarante décors de l'asset bible.
  *
- * Un appartement n'est pas décoré au hasard : il raconte QUI y vit. Le
- * studio de l'étudiant, le salon familial, la chambre d'ado, le repaire du
- * gamer, l'atelier de l'artiste, la colocation, le logement du retraité, le
- * bureau à domicile, la salle de sport improvisée, le couple sans enfant,
- * la cuisine populaire — et le logement vide, drap sur les meubles.
+ * Un appartement n'est pas décoré au hasard : il raconte QUI y vit. Chaque
+ * décor est déduit d'un fait vérifiable de la simulation — un métier, un
+ * défaut de caractère, une composition de foyer, une dette, un âge — jamais
+ * d'un tirage. Un décor qu'aucune règle ne peut atteindre serait un mensonge
+ * dans le catalogue d'images ; tools/test-look.js vérifie qu'ils sortent
+ * tous au moins une fois sur un immeuble simulé.
+ *
+ * L'ordre de ce tableau EST l'ordre de priorité : le plus spécifique gagne.
+ * Un tatoueur bohème avec un aquarium est d'abord un tatoueur.
  */
-export const ARCHETYPES = ['vide', 'studio_etudiant', 'salon_familial', 'cuisine_populaire',
-  'chambre_ado', 'couple', 'retraite', 'gamer', 'artiste', 'colocation',
-  'bureau_domicile', 'sport_maison'];
+export const ARCHETYPE_RULES = [
+  // --- 1. L'état du logement prime sur qui l'occupe ---
+  ['vide', (o) => !o.length],
+  ['squat', (o, c) => c.dettes > 900 && c.pauvres >= 1],
+  ['en_renovation', (o, c) => c.bricoleurs > 0 && c.desordre > 0.45],
+  ['airbnb', (o, c) => o.length >= 2 && c.arrives < 20 && !c.familles],
+
+  // --- 2. Le métier, quand il déborde sur le logement ---
+  ['tatoueur', (o, c) => c.job('artiste') && c.tatoues >= 1],
+  ['coiffeur', (o, c) => c.job('coiffeur')],
+  ['musicien', (o, c) => c.job('musicien')],
+  ['psychologue', (o, c) => c.job('infirmier') && c.calme],
+  // Aucun agent de sécurité dans cet immeuble ? Alors c'est la discipline
+  // qui fait le militaire, pas la fiche de paie.
+  ['militaire', (o, c) => c.job('agent_secu')
+    || (o.length <= 2 && c.rigueur > 0.86 && c.has((p) => p.personality.has('courageux')))],
+  ['artiste', (o, c) => c.job('artiste')],
+  ['bureau_domicile', (o, c) => c.remote],
+
+  // --- 3. Les foyers qu'on reconnaît au premier coup d'œil ---
+  ['couple_toxique', (o, c) => o.length <= 3 && c.tension > 0.28],
+  ['famille_recomposee', (o, c) => c.enfants >= 1 && c.demiFreres],
+  ['etudiant_erasmus', (o, c) => o.length === 1 && c.job('etudiant') && c.arrives < 20],
+  ['studio_etudiant', (o, c) => o.length === 1 && c.job('etudiant')],
+  ['jeune_parent', (o, c) => c.bebes > 0],
+  ['colocation', (o, c) => c.coloc],
+  ['fete_permanente', (o, c) => o.length >= 2 && c.extraversion > 0.62 && c.age < 36],
+
+  // --- 4. Le caractère poussé jusqu'au décor ---
+  ['accumulateur', (o, c) => c.desordre > 0.62 && c.age > 38],
+  ['ultra_propre', (o, c) => c.organises === o.length && c.rigueur > 0.78],
+  ['minimaliste', (o, c) => o.length === 1 && c.rigueur > 0.78 && c.depense < 0.28],
+  ['collectionneur', (o, c) => c.has((p) => p.personality.has('tetu')) && c.age > 45],
+  ['rempli_de_plantes', (o, c) => c.plantes >= 3 && c.ouverture > 0.52],
+  ['aquariums', (o, c) => c.has((p) => p.personality.has('patient') && p.personality.has('discret'))],
+  ['tres_religieux', (o, c) => c.has((p) => p.personality.has('fidele')) && c.age > 52],
+  ['boheme', (o, c) => c.ouverture > 0.78],
+  ['brocante', (o, c) => c.has((p) => p.personality.has('radin')) && c.age > 50],
+
+  // --- 5. Les passions, qui passent avant le foyer ordinaire ---
+  ['fan_de_foot', (o, c) => c.has((p) => p.personality.has('bruyant') && p.gender === 'm' && p.age >= 16)],
+  ['fan_de_mangas', (o, c) => c.has((p) => p.age >= 13 && p.age < 30 && p.personality.has('discret'))],
+  ['gamer', (o, c) => o.length <= 2 && c.age < 38 && c.ouverture > 0.55 && c.extraversion < 0.45],
+  ['influenceur', (o, c) => c.age < 34 && c.has((p) => p.personality.has('orgueilleux') && p.age < 34)],
+  ['ancien_boxeur', (o, c) => c.has((p) => p.age > 50 && p.gender === 'm'
+    && (p.personality.has('courageux') || p.personality.has('tetu')))],
+  ['sport_maison', (o, c) => c.has((p) => p.personality.has('travailleur') && p.age < 55 && p.id % 5 === 0)],
+
+  // --- 6. Le foyer ordinaire ---
+  ['chambre_ado', (o, c) => c.ados > 0 && !c.enfants && o.length <= 3],
+  ['retraite', (o) => o.every((p) => p.isOld)],
+  ['cuisine_populaire', (o, c) => c.enfants > 0 && o.length >= 4],
+  ['salon_familial', (o, c) => c.enfants > 0],
+  ['couple', (o, c) => o.length === 2 && c.enCouple],
+
+  // --- 7. Faute de mieux, la forme du logement ---
+  ['micro_appartement', (o, c) => c.pieces <= 1],
+  ['loft_industriel', (o, c) => c.pieces >= 4 && c.riches],
+];
+
+export const ARCHETYPES = ARCHETYPE_RULES.map(([id]) => id);
+
+/** Les faits sur lesquels les règles s'appuient, calculés une seule fois. */
+function contexte(world, apt, occupants) {
+  const has = (fn) => occupants.some(fn);
+  const moyenne = (fn) => (occupants.length
+    ? occupants.reduce((s, p) => s + fn(p), 0) / occupants.length : 0);
+  const adultes = occupants.filter((p) => p.age >= 18);
+
+  // Depuis combien de temps le plus récent est-il là ? Un Airbnb, c'est
+  // exactement ça : des gens qui viennent d'arriver et qui repartiront.
+  const arrives = occupants.length
+    ? Math.min(...occupants.map((p) => (world.clock.tick - (p.movedInTick ?? 0)) / 288))
+    : 9999;
+
+  // Une brouille sous le même toit, c'est un couple toxique, pas un couple.
+  let tension = 0;
+  for (const a of occupants) {
+    for (const b of occupants) {
+      if (a === b) continue;
+      tension = Math.max(tension, a.relations.get(b.id, false)?.tension ?? 0);
+    }
+  }
+
+  const enfants = occupants.filter((p) => p.age < 12).length;
+  // Une famille recomposée, ce n'est pas « des demi-frères » — c'est un
+  // enfant qui vit sous le même toit qu'un adulte qui n'est pas son parent.
+  // Cherchée par les demi-frères, elle ne sortait jamais : les enfants nés
+  // dans l'immeuble ont tous les deux mêmes parents.
+  const adultesTous = occupants.filter((p) => p.age >= 20);
+  const demiFreres = occupants.some((enf) => {
+    if (enf.age >= 18) return false;
+    const sesParents = new Set(enf.relations.parents().map((r) => r.other));
+    if (!sesParents.size) return false;
+    return adultesTous.some((a) => !sesParents.has(a.id)
+      && a.relations.get(enf.id, false)?.isFamily !== true);
+  });
+
+  return {
+    has,
+    job: (id) => has((p) => p.job.id === id),
+    remote: has((p) => p.job.remote),
+    age: moyenne((p) => p.age),
+    rigueur: moyenne((p) => p.personality.get('rigueur')),
+    ouverture: moyenne((p) => p.personality.get('ouverture')),
+    extraversion: moyenne((p) => p.personality.get('extraversion')),
+    depense: moyenne((p) => p.personality.depense),
+    desordre: moyenne((p) => (p.personality.has('desordonne') ? 1 : 0) * 0.7
+      + (p.personality.has('paresseux') ? 0.3 : 0)),
+    organises: occupants.filter((p) => p.personality.has('organise')).length,
+    bricoleurs: occupants.filter((p) => p.personality.has('bricoleur')).length,
+    // Le tatouage vit dans l'apparence, qui n'est calculée qu'au dessin :
+    // hors navigateur elle n'existe pas. On rejoue donc le même tirage.
+    tatoues: occupants.filter((p) => p.age >= 18 && p.age < 60 && p.id % 9 === 4).length,
+    calme: moyenne((p) => p.personality.get('amabilite')) > 0.55,
+    plantes: apt.plants ?? 0,
+    pieces: apt.rooms ?? 2,
+    riches: moyenne((p) => p.money) > 2600,
+    pauvres: occupants.filter((p) => p.money < 220).length,
+    dettes: occupants.reduce((s, p) => s + p.debt, 0),
+    enfants,
+    bebes: occupants.filter((p) => p.age < 3).length,
+    ados: occupants.filter((p) => p.age >= 12 && p.age < 20).length,
+    familles: occupants.some((p) => occupants.some((q) => q !== p
+      && p.relations.get(q.id, false)?.isFamily)),
+    demiFreres,
+    tension,
+    arrives,
+    // partner() rend une RELATION, pas un identifiant. Comparer les deux
+    // donnait toujours faux, et le décor « couple » ne sortait jamais.
+    enCouple: adultes.length === 2
+      && adultes.some((a) => a.relations.partner()?.other === adultes.find((b) => b !== a)?.id),
+    coloc: adultes.length >= 2 && enfants === 0
+      && adultes.every((a) => a === adultes[0] || !a.relations.get(adultes[0].id, false)?.isFamily)
+      && !adultes.some((a) => a.relations.partner()),
+  };
+}
 
 export function archetypeFor(world, apt, occupants) {
-  if (!occupants.length) return 'vide';
-  const adults = occupants.filter((p) => p.age >= 18);
-  const kids = occupants.filter((p) => p.age < 12);
-  const teens = occupants.filter((p) => p.age >= 12 && p.age < 20);
-  const has = (fn) => occupants.some(fn);
-
-  if (has((p) => p.job.id === 'artiste' || p.job.id === 'musicien')) return 'artiste';
-  // Le gamer : jeune, seul, joueur invétéré.
-  if (adults.length === 1 && !kids.length && adults[0].age < 38
-    && adults[0].personality.get('ouverture') > 0.55
-    && adults[0].personality.get('extraversion') < 0.45) return 'gamer';
-  if (occupants.length === 1 && occupants[0].job.id === 'etudiant') return 'studio_etudiant';
-  if (teens.length && !kids.length && occupants.length <= 3) return 'chambre_ado';
-  if (has((p) => p.job.remote)) return 'bureau_domicile';
-  if (has((p) => p.personality.has('travailleur') && p.personality.get('anxiete') < 0.4
-    && p.age >= 18 && p.age < 55 && (p.id % 5 === 0))) return 'sport_maison';
-  if (occupants.every((p) => p.isOld)) return 'retraite';
-  // La colocation : des adultes sans lien de famille.
-  if (adults.length >= 2 && !kids.length
-    && adults.every((a) => a === adults[0] || !a.relations.get(adults[0].id, false)?.isFamily)
-    && !adults.some((a) => a.relations.partner())) return 'colocation';
-  if (kids.length) return occupants.length >= 4 ? 'cuisine_populaire' : 'salon_familial';
-  if (adults.length === 2) return 'couple';
+  const c = contexte(world, apt, occupants);
+  for (const [id, test] of ARCHETYPE_RULES) {
+    if (test(occupants, c)) return id;
+  }
   return 'salon_familial';
 }
 
 /** Ce que chaque décor pose dans la pièce, en plus des affaires de chacun. */
 const ARCHETYPE_PROPS = {
   vide: ['drap_meuble', 'cartons'],
-  studio_etudiant: ['cartons', 'livres'],
-  salon_familial: ['jouets', 'panier_linge'],
-  cuisine_populaire: ['casseroles', 'epices', 'panier_linge'],
-  chambre_ado: ['ampli', 'skate'],
-  couple: ['bouquet'],
-  retraite: ['napperon', 'tricot'],
-  gamer: ['double_ecran', 'led', 'manettes'],
-  artiste: ['toiles'],
-  colocation: ['bouteilles', 'chaussures_tas'],
+  squat: ['cartons', 'bouteilles', 'clutter'],
+  en_renovation: ['etabli', 'cartons', 'toiles'],
+  airbnb: ['valises', 'napperon'],
+  tatoueur: ['etabli', 'toiles'],
+  coiffeur: ['miroir_pro', 'produits'],
+  musicien: ['guitare', 'ampli'],
+  psychologue: ['livres', 'divan'],
+  militaire: ['cartons', 'halteres'],
+  artiste: ['chevalet', 'toiles'],
   bureau_domicile: ['ordinateur', 'imprimante'],
+  accumulateur: ['cartons', 'clutter', 'livres', 'bouteilles'],
+  ultra_propre: ['produits'],
+  minimaliste: [],
+  collectionneur: ['vitrine', 'livres'],
+  rempli_de_plantes: ['jungle'],
+  aquariums: ['aquarium'],
+  tres_religieux: ['napperon', 'vitrine'],
+  boheme: ['tapis_mural', 'guitare', 'jungle'],
+  brocante: ['vitrine', 'cartons', 'napperon'],
+  fan_de_foot: ['echarpe_club', 'ecran_geant'],
+  fan_de_mangas: ['figurines', 'livres'],
+  gamer: ['double_ecran', 'led', 'manettes'],
+  influenceur: ['ring_light', 'led'],
+  ancien_boxeur: ['sac_frappe', 'vitrine'],
   sport_maison: ['velo_appart', 'halteres', 'tapis_yoga'],
+  couple_toxique: ['bouteilles', 'clutter'],
+  famille_recomposee: ['jouets', 'panier_linge', 'cartons'],
+  etudiant_erasmus: ['valises', 'cartons', 'livres'],
+  studio_etudiant: ['cartons', 'livres'],
+  chambre_ado: ['ampli', 'skate'],
+  jeune_parent: ['berceau', 'panier_linge', 'jouets'],
+  colocation: ['bouteilles', 'chaussures_tas'],
+  fete_permanente: ['bouteilles', 'led', 'ampli'],
+  retraite: ['napperon', 'tricot'],
+  cuisine_populaire: ['casseroles', 'epices', 'panier_linge'],
+  salon_familial: ['jouets', 'panier_linge'],
+  couple: ['bouquet'],
+  micro_appartement: ['cartons'],
+  loft_industriel: ['toiles', 'vitrine'],
 };
 
 /**

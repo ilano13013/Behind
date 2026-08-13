@@ -2492,7 +2492,14 @@ function makeApartments(rng, floors, cols) {
     for (const a of ground) {
       if (a.col === hallCol) a.special = SPECIAL_UNITS.HALL;
       else if (a.col === 0) a.special = SPECIAL_UNITS.LOGE;
-      else if (a.col >= cols - 2) a.special = SPECIAL_UNITS.COMMERCE;
+      else if (a.col >= cols - 2) {
+        a.special = SPECIAL_UNITS.COMMERCE;
+        // Le rez-de-chaussée fait partie du quartier : un immeuble avec une
+        // boulangerie ne vit pas comme un immeuble avec une laverie.
+        a.commerce = rng.pick(['cafe', 'pharmacie', 'boulangerie', 'tabac',
+          'salon_coiffure', 'laverie', 'salle_de_sport', 'supermarche',
+          'ecole', 'bibliotheque']);
+      }
     }
   }
   // Une cage d'escalier verticale, visible de l'extérieur.
@@ -5944,6 +5951,34 @@ const __x = {};
 
 const { RNG } = __m["src/core/rng.js"];
 const { Clock, TICKS_PER_DAY, DAYS_PER_MONTH } = __m["src/core/clock.js"];
+
+/** Le rez-de-chaussée porte un nom, comme tout le monde dans l'immeuble. */
+const COMMERCE_NOMS = {
+  cafe: 'le café du coin',
+  pharmacie: 'la pharmacie',
+  boulangerie: 'la boulangerie',
+  tabac: 'le tabac-presse',
+  salon_coiffure: 'le salon de coiffure',
+  laverie: 'la laverie',
+  salle_de_sport: 'la salle de sport',
+  supermarche: 'la supérette',
+  ecole: 'l\'école, au rez-de-chaussée',
+  bibliotheque: 'la bibliothèque de quartier',
+};
+
+/** Ce qu'on y fait, et ce que ça change pour l'immeuble. */
+const COMMERCE_PHRASES = {
+  cafe: 'Le comptoir voit passer tout l\'immeuble. Rien n\'y reste secret longtemps.',
+  pharmacie: 'On y va pour un médicament et on en ressort avec des nouvelles.',
+  boulangerie: 'À sept heures, l\'odeur monte jusqu\'au quatrième.',
+  tabac: 'Le journal, les jeux, et deux ou trois avis sur tout.',
+  salon_coiffure: 'On y parle plus qu\'on n\'y coupe.',
+  laverie: 'On y attend. C\'est là que les voisins finissent par se parler.',
+  salle_de_sport: 'Ouverte tôt, fermée tard. On y croise toujours les mêmes.',
+  supermarche: 'Ouvert jusqu\'à minuit. C\'est le frigo de tout le bâtiment.',
+  ecole: 'Les cris de la récréation traversent trois étages, deux fois par jour.',
+  bibliotheque: 'Le seul endroit calme de la rue.',
+};
 const { EventBus, Chronicle, makeBeat, TONE } = __m["src/core/events.js"];
 const { makeApartments, populateApartment, seedHistory, SPECIAL_UNITS } = __m["src/sim/building.js"];
 const { buildContext, chooseAction, ACTION_BY_ID } = __m["src/sim/actions.js"];
@@ -5965,7 +6000,14 @@ class World {
     this.clock = new Clock(opts.startTick ?? 7 * 12);
     this.bus = new EventBus();
     this.chronicle = new Chronicle();
-    this.weather = { id: 'clair', intensity: 0.5 };
+    // L'âge du bâtiment au premier jour. Un immeuble neuf et un immeuble
+    // de quarante-cinq ans ne racontent pas la même chose, et la partie
+    // ajoute ses années à ce compteur-là.
+    this.buildingAge = this.rng.fork('batiment').int(0, 45);
+    this.weather = { id: 'clair', intensity: 0.5, veille: 'clair' };
+    this.fete = null;
+    this.moonFull = false;
+    this.apocalypse = false;
 
     this.floors = opts.floors ?? 11;
     this.cols = opts.cols ?? 8;
@@ -6087,7 +6129,9 @@ class World {
     if (!apt) return '?';
     if (apt.special === SPECIAL_UNITS.LOGE) return 'la loge';
     if (apt.special === SPECIAL_UNITS.HALL) return 'le hall';
-    if (apt.special === SPECIAL_UNITS.COMMERCE) return 'le local commercial';
+    if (apt.special === SPECIAL_UNITS.COMMERCE) {
+      return COMMERCE_NOMS[apt.commerce] ?? 'le local commercial';
+    }
     const side = FLOOR_SIDES[apt.col % FLOOR_SIDES.length];
     if (apt.floor === 0) return `rez-de-chaussée ${side}`;
     return `${apt.floor}${apt.floor === 1 ? 'er' : 'e'} ${side}`;
@@ -6170,6 +6214,9 @@ class World {
   }
 
   addResident(p, aptId) {
+    // Depuis quand vit-on ici ? C'est ce qui distingue un foyer d'un
+    // meublé de passage, et c'est invérifiable sans le noter au moment même.
+    if (p.apartment !== aptId) p.movedInTick = this.clock.tick;
     p.apartment = aptId;
     p.present = true;
     this.people.set(p.id, p);
@@ -6499,39 +6546,111 @@ class World {
   // ------------------------------------------------------------- lent
 
   /**
-   * La météo du jour — les ambiances de la planche : nuit calme et soirée
-   * viennent du cycle du ciel, celles-ci viennent du calendrier. Elle se
-   * voit sur la façade et se sent un peu dans les corps.
+   * Le temps qu'il fait, et ce qui se fête.
+   *
+   * Ce n'est pas de la décoration : les vingt-cinq ambiances de l'asset
+   * bible doivent toutes pouvoir arriver, sinon les images correspondantes
+   * ne seraient jamais affichées. On tire donc un vrai temps par saison,
+   * on tient le calendrier des fêtes, et on suit la lune.
+   *
+   * Et ça se sent dans les corps : la canicule use, le froid épuise, la
+   * pluie enferme, la pollution abîme, une fête remonte tout le monde.
    */
   weatherStep() {
-    const s = this.clock.season;
+    const s = this.clock.season;         // 0 hiver 1 printemps 2 été 3 automne
     const r = this.rng.fork(`meteo-${this.clock.day}`);
-    let next = 'clair';
-    if (s === 0) next = r.chance(0.2) ? 'neige' : r.chance(0.32) ? 'pluie' : 'clair';
-    else if (s === 2) next = r.chance(0.16) ? 'canicule' : r.chance(0.1) ? 'pluie' : 'clair';
-    else next = r.chance(0.28) ? 'pluie' : 'clair';
+    const avant = this.weather?.id ?? 'clair';
 
-    const before = this.weather?.id ?? 'clair';
-    this.weather = { id: next, intensity: 0.5 + r.float(0, 0.5) };
-    if (next !== before && next !== 'clair' && this.canBeat('meteo', 'jour', 2)) {
+    // Deux jours sur trois, il ne se passe rien dans le ciel — et c'est
+    // volontaire. Un immeuble sous la tempête tous les trois jours ne serait
+    // plus un immeuble, ce serait un décor de catastrophe, et les habitants
+    // vivraient sous une pluie de malus permanente.
+    const sacs = [
+      ['grand_froid', 'grand_froid', 'neige', 'petite_neige', 'petite_neige',
+        'brouillard', 'pluie', 'pluie', 'vent_fort', 'tempete'],
+      ['pluie', 'pluie', 'pluie', 'orage', 'vent_fort', 'brouillard', 'pollution'],
+      ['canicule', 'canicule', 'orage', 'pluie', 'pluie', 'pollution'],
+      ['pluie', 'pluie', 'vent_fort', 'vent_fort', 'brouillard', 'tempete', 'pollution'],
+    ];
+    let id = r.chance(0.64) ? 'clair' : r.pick(sacs[s]);
+
+    // Un arc-en-ciel ne s'invente pas : il faut qu'il ait plu la veille.
+    if (id === 'clair' && ['pluie', 'orage'].includes(avant) && r.chance(0.35)) {
+      id = 'arc_en_ciel';
+    }
+
+    this.weather = { id, intensity: 0.5 + r.float(0, 0.5), veille: avant };
+
+    // La lune : un cycle de vingt-neuf jours et demi, arrondi à l'immeuble.
+    this.moonFull = this.clock.day % 30 === 0;
+
+    // Le calendrier. Deux jours par mois, donc une fête tient une journée.
+    const m = this.clock.monthIndex;
+    const jour = this.clock.day % DAYS_PER_MONTH;
+    this.fete = null;
+    if (m === 11 && jour === 1) this.fete = 'noel';
+    else if (m === 0 && jour === 0) this.fete = 'nouvel_an';
+    else if (m === 9 && jour === 1) this.fete = 'halloween';
+    else if (m === 6 && jour === 0) this.fete = 'feu_artifice';
+
+    // Le ciel de fin du monde : une fois par décennie, sans explication.
+    // Personne n'en parle le lendemain.
+    this.apocalypse = this.rng.fork(`ciel-${this.clock.day}`).chance(0.004);
+
+    if (id !== avant && id !== 'clair' && this.canBeat('meteo', 'jour', 2)) {
       const textes = {
         pluie: 'Il pleut sur le quartier. Les fenêtres se ferment une à une.',
+        orage: 'Ça tonne. Quelqu\'un a débranché la télé, par précaution.',
         neige: 'Il neige. Même le chat du rez-de-chaussée est rentré.',
+        petite_neige: 'Trois flocons, et tout le monde est à sa fenêtre.',
+        brouillard: 'Le brouillard a mangé l\'immeuble d\'en face.',
         canicule: 'Canicule. Tout l\'immeuble vit volets mi-clos.',
+        grand_froid: 'Grand froid. On entend les radiateurs travailler.',
+        vent_fort: 'Le vent secoue les volets depuis ce matin.',
+        tempete: 'Tempête. Une poubelle a traversé la rue toute seule.',
+        pollution: 'L\'air est lourd. On respire le quartier plus qu\'on ne le voit.',
+        arc_en_ciel: 'Un arc-en-ciel, juste au-dessus du toit. Deux personnes l\'ont vu.',
+      };
+      if (textes[id]) {
+        this.beat({
+          kind: 'meteo.change', text: textes[id],
+          tone: TONE.QUOTIDIEN, weight: 0.3, actors: [], apartment: null,
+        });
+      }
+    }
+    if (this.fete && this.canBeat('fete-calendrier', this.fete, 20)) {
+      const textes = {
+        noel: 'C\'est Noël. Ça sent la cuisine dans toute la cage d\'escalier.',
+        nouvel_an: 'Minuit est passé. On s\'embrasse sur les paliers.',
+        halloween: 'Des enfants déguisés sonnent à toutes les portes. Presque toutes ouvrent.',
+        feu_artifice: 'Le feu d\'artifice. Tout l\'immeuble est aux fenêtres, en même temps.',
       };
       this.beat({
-        kind: 'meteo.change', text: textes[next],
-        tone: TONE.QUOTIDIEN, weight: 0.3, actors: [], apartment: null,
+        kind: 'fete.calendrier', text: textes[this.fete],
+        tone: TONE.TENDRE, weight: 0.45, actors: [], apartment: null,
       });
     }
-    // La météo se sent : la canicule use, la pluie enferme.
-    if (next === 'canicule') {
-      for (const p of this.livingPeople()) {
-        p.needs.add('confort', -5);
-        p.stress = Math.min(100, p.stress + 2);
+
+    // --- Ce que le temps fait aux gens ---
+    const gens = this.livingPeople();
+    if (id === 'canicule') {
+      for (const p of gens) { p.needs.add('confort', -5); p.stress = Math.min(100, p.stress + 2); }
+    } else if (id === 'grand_froid') {
+      for (const p of gens) { p.needs.add('confort', -4); p.needs.add('energie', -2); }
+    } else if (id === 'pollution') {
+      for (const p of gens) { p.health = Math.max(0, p.health - 0.3); p.needs.add('plaisir', -1); }
+    } else if (['pluie', 'orage', 'neige', 'tempete'].includes(id)) {
+      for (const p of gens) p.needs.add('plaisir', -2);
+    } else if (id === 'arc_en_ciel') {
+      for (const p of gens) p.mood = Math.min(100, p.mood + 2);
+    }
+    // Une fête, ça remonte tout un immeuble d'un coup. C'est bien le seul
+    // évènement de ce jeu qui touche tout le monde dans le même sens.
+    if (this.fete) {
+      for (const p of gens) {
+        p.mood = Math.min(100, p.mood + 5);
+        p.needs.add('social', 6);
       }
-    } else if (next === 'pluie' || next === 'neige') {
-      for (const p of this.livingPeople()) p.needs.add('plaisir', -2);
     }
   }
 
@@ -6648,6 +6767,8 @@ class World {
     };
   }
 }
+__x.COMMERCE_NOMS = COMMERCE_NOMS;
+__x.COMMERCE_PHRASES = COMMERCE_PHRASES;
 __x.World = World;
 return __x;
 })();
@@ -7013,59 +7134,206 @@ function planFor(apt) {
 }
 
 /**
- * Les douze décors de la planche.
+ * Les quarante décors de l'asset bible.
  *
- * Un appartement n'est pas décoré au hasard : il raconte QUI y vit. Le
- * studio de l'étudiant, le salon familial, la chambre d'ado, le repaire du
- * gamer, l'atelier de l'artiste, la colocation, le logement du retraité, le
- * bureau à domicile, la salle de sport improvisée, le couple sans enfant,
- * la cuisine populaire — et le logement vide, drap sur les meubles.
+ * Un appartement n'est pas décoré au hasard : il raconte QUI y vit. Chaque
+ * décor est déduit d'un fait vérifiable de la simulation — un métier, un
+ * défaut de caractère, une composition de foyer, une dette, un âge — jamais
+ * d'un tirage. Un décor qu'aucune règle ne peut atteindre serait un mensonge
+ * dans le catalogue d'images ; tools/test-look.js vérifie qu'ils sortent
+ * tous au moins une fois sur un immeuble simulé.
+ *
+ * L'ordre de ce tableau EST l'ordre de priorité : le plus spécifique gagne.
+ * Un tatoueur bohème avec un aquarium est d'abord un tatoueur.
  */
-const ARCHETYPES = ['vide', 'studio_etudiant', 'salon_familial', 'cuisine_populaire',
-  'chambre_ado', 'couple', 'retraite', 'gamer', 'artiste', 'colocation',
-  'bureau_domicile', 'sport_maison'];
+const ARCHETYPE_RULES = [
+  // --- 1. L'état du logement prime sur qui l'occupe ---
+  ['vide', (o) => !o.length],
+  ['squat', (o, c) => c.dettes > 900 && c.pauvres >= 1],
+  ['en_renovation', (o, c) => c.bricoleurs > 0 && c.desordre > 0.45],
+  ['airbnb', (o, c) => o.length >= 2 && c.arrives < 20 && !c.familles],
+
+  // --- 2. Le métier, quand il déborde sur le logement ---
+  ['tatoueur', (o, c) => c.job('artiste') && c.tatoues >= 1],
+  ['coiffeur', (o, c) => c.job('coiffeur')],
+  ['musicien', (o, c) => c.job('musicien')],
+  ['psychologue', (o, c) => c.job('infirmier') && c.calme],
+  // Aucun agent de sécurité dans cet immeuble ? Alors c'est la discipline
+  // qui fait le militaire, pas la fiche de paie.
+  ['militaire', (o, c) => c.job('agent_secu')
+    || (o.length <= 2 && c.rigueur > 0.86 && c.has((p) => p.personality.has('courageux')))],
+  ['artiste', (o, c) => c.job('artiste')],
+  ['bureau_domicile', (o, c) => c.remote],
+
+  // --- 3. Les foyers qu'on reconnaît au premier coup d'œil ---
+  ['couple_toxique', (o, c) => o.length <= 3 && c.tension > 0.28],
+  ['famille_recomposee', (o, c) => c.enfants >= 1 && c.demiFreres],
+  ['etudiant_erasmus', (o, c) => o.length === 1 && c.job('etudiant') && c.arrives < 20],
+  ['studio_etudiant', (o, c) => o.length === 1 && c.job('etudiant')],
+  ['jeune_parent', (o, c) => c.bebes > 0],
+  ['colocation', (o, c) => c.coloc],
+  ['fete_permanente', (o, c) => o.length >= 2 && c.extraversion > 0.62 && c.age < 36],
+
+  // --- 4. Le caractère poussé jusqu'au décor ---
+  ['accumulateur', (o, c) => c.desordre > 0.62 && c.age > 38],
+  ['ultra_propre', (o, c) => c.organises === o.length && c.rigueur > 0.78],
+  ['minimaliste', (o, c) => o.length === 1 && c.rigueur > 0.78 && c.depense < 0.28],
+  ['collectionneur', (o, c) => c.has((p) => p.personality.has('tetu')) && c.age > 45],
+  ['rempli_de_plantes', (o, c) => c.plantes >= 3 && c.ouverture > 0.52],
+  ['aquariums', (o, c) => c.has((p) => p.personality.has('patient') && p.personality.has('discret'))],
+  ['tres_religieux', (o, c) => c.has((p) => p.personality.has('fidele')) && c.age > 52],
+  ['boheme', (o, c) => c.ouverture > 0.78],
+  ['brocante', (o, c) => c.has((p) => p.personality.has('radin')) && c.age > 50],
+
+  // --- 5. Les passions, qui passent avant le foyer ordinaire ---
+  ['fan_de_foot', (o, c) => c.has((p) => p.personality.has('bruyant') && p.gender === 'm' && p.age >= 16)],
+  ['fan_de_mangas', (o, c) => c.has((p) => p.age >= 13 && p.age < 30 && p.personality.has('discret'))],
+  ['gamer', (o, c) => o.length <= 2 && c.age < 38 && c.ouverture > 0.55 && c.extraversion < 0.45],
+  ['influenceur', (o, c) => c.age < 34 && c.has((p) => p.personality.has('orgueilleux') && p.age < 34)],
+  ['ancien_boxeur', (o, c) => c.has((p) => p.age > 50 && p.gender === 'm'
+    && (p.personality.has('courageux') || p.personality.has('tetu')))],
+  ['sport_maison', (o, c) => c.has((p) => p.personality.has('travailleur') && p.age < 55 && p.id % 5 === 0)],
+
+  // --- 6. Le foyer ordinaire ---
+  ['chambre_ado', (o, c) => c.ados > 0 && !c.enfants && o.length <= 3],
+  ['retraite', (o) => o.every((p) => p.isOld)],
+  ['cuisine_populaire', (o, c) => c.enfants > 0 && o.length >= 4],
+  ['salon_familial', (o, c) => c.enfants > 0],
+  ['couple', (o, c) => o.length === 2 && c.enCouple],
+
+  // --- 7. Faute de mieux, la forme du logement ---
+  ['micro_appartement', (o, c) => c.pieces <= 1],
+  ['loft_industriel', (o, c) => c.pieces >= 4 && c.riches],
+];
+
+const ARCHETYPES = ARCHETYPE_RULES.map(([id]) => id);
+
+/** Les faits sur lesquels les règles s'appuient, calculés une seule fois. */
+function contexte(world, apt, occupants) {
+  const has = (fn) => occupants.some(fn);
+  const moyenne = (fn) => (occupants.length
+    ? occupants.reduce((s, p) => s + fn(p), 0) / occupants.length : 0);
+  const adultes = occupants.filter((p) => p.age >= 18);
+
+  // Depuis combien de temps le plus récent est-il là ? Un Airbnb, c'est
+  // exactement ça : des gens qui viennent d'arriver et qui repartiront.
+  const arrives = occupants.length
+    ? Math.min(...occupants.map((p) => (world.clock.tick - (p.movedInTick ?? 0)) / 288))
+    : 9999;
+
+  // Une brouille sous le même toit, c'est un couple toxique, pas un couple.
+  let tension = 0;
+  for (const a of occupants) {
+    for (const b of occupants) {
+      if (a === b) continue;
+      tension = Math.max(tension, a.relations.get(b.id, false)?.tension ?? 0);
+    }
+  }
+
+  const enfants = occupants.filter((p) => p.age < 12).length;
+  // Une famille recomposée, ce n'est pas « des demi-frères » — c'est un
+  // enfant qui vit sous le même toit qu'un adulte qui n'est pas son parent.
+  // Cherchée par les demi-frères, elle ne sortait jamais : les enfants nés
+  // dans l'immeuble ont tous les deux mêmes parents.
+  const adultesTous = occupants.filter((p) => p.age >= 20);
+  const demiFreres = occupants.some((enf) => {
+    if (enf.age >= 18) return false;
+    const sesParents = new Set(enf.relations.parents().map((r) => r.other));
+    if (!sesParents.size) return false;
+    return adultesTous.some((a) => !sesParents.has(a.id)
+      && a.relations.get(enf.id, false)?.isFamily !== true);
+  });
+
+  return {
+    has,
+    job: (id) => has((p) => p.job.id === id),
+    remote: has((p) => p.job.remote),
+    age: moyenne((p) => p.age),
+    rigueur: moyenne((p) => p.personality.get('rigueur')),
+    ouverture: moyenne((p) => p.personality.get('ouverture')),
+    extraversion: moyenne((p) => p.personality.get('extraversion')),
+    depense: moyenne((p) => p.personality.depense),
+    desordre: moyenne((p) => (p.personality.has('desordonne') ? 1 : 0) * 0.7
+      + (p.personality.has('paresseux') ? 0.3 : 0)),
+    organises: occupants.filter((p) => p.personality.has('organise')).length,
+    bricoleurs: occupants.filter((p) => p.personality.has('bricoleur')).length,
+    // Le tatouage vit dans l'apparence, qui n'est calculée qu'au dessin :
+    // hors navigateur elle n'existe pas. On rejoue donc le même tirage.
+    tatoues: occupants.filter((p) => p.age >= 18 && p.age < 60 && p.id % 9 === 4).length,
+    calme: moyenne((p) => p.personality.get('amabilite')) > 0.55,
+    plantes: apt.plants ?? 0,
+    pieces: apt.rooms ?? 2,
+    riches: moyenne((p) => p.money) > 2600,
+    pauvres: occupants.filter((p) => p.money < 220).length,
+    dettes: occupants.reduce((s, p) => s + p.debt, 0),
+    enfants,
+    bebes: occupants.filter((p) => p.age < 3).length,
+    ados: occupants.filter((p) => p.age >= 12 && p.age < 20).length,
+    familles: occupants.some((p) => occupants.some((q) => q !== p
+      && p.relations.get(q.id, false)?.isFamily)),
+    demiFreres,
+    tension,
+    arrives,
+    // partner() rend une RELATION, pas un identifiant. Comparer les deux
+    // donnait toujours faux, et le décor « couple » ne sortait jamais.
+    enCouple: adultes.length === 2
+      && adultes.some((a) => a.relations.partner()?.other === adultes.find((b) => b !== a)?.id),
+    coloc: adultes.length >= 2 && enfants === 0
+      && adultes.every((a) => a === adultes[0] || !a.relations.get(adultes[0].id, false)?.isFamily)
+      && !adultes.some((a) => a.relations.partner()),
+  };
+}
 
 function archetypeFor(world, apt, occupants) {
-  if (!occupants.length) return 'vide';
-  const adults = occupants.filter((p) => p.age >= 18);
-  const kids = occupants.filter((p) => p.age < 12);
-  const teens = occupants.filter((p) => p.age >= 12 && p.age < 20);
-  const has = (fn) => occupants.some(fn);
-
-  if (has((p) => p.job.id === 'artiste' || p.job.id === 'musicien')) return 'artiste';
-  // Le gamer : jeune, seul, joueur invétéré.
-  if (adults.length === 1 && !kids.length && adults[0].age < 38
-    && adults[0].personality.get('ouverture') > 0.55
-    && adults[0].personality.get('extraversion') < 0.45) return 'gamer';
-  if (occupants.length === 1 && occupants[0].job.id === 'etudiant') return 'studio_etudiant';
-  if (teens.length && !kids.length && occupants.length <= 3) return 'chambre_ado';
-  if (has((p) => p.job.remote)) return 'bureau_domicile';
-  if (has((p) => p.personality.has('travailleur') && p.personality.get('anxiete') < 0.4
-    && p.age >= 18 && p.age < 55 && (p.id % 5 === 0))) return 'sport_maison';
-  if (occupants.every((p) => p.isOld)) return 'retraite';
-  // La colocation : des adultes sans lien de famille.
-  if (adults.length >= 2 && !kids.length
-    && adults.every((a) => a === adults[0] || !a.relations.get(adults[0].id, false)?.isFamily)
-    && !adults.some((a) => a.relations.partner())) return 'colocation';
-  if (kids.length) return occupants.length >= 4 ? 'cuisine_populaire' : 'salon_familial';
-  if (adults.length === 2) return 'couple';
+  const c = contexte(world, apt, occupants);
+  for (const [id, test] of ARCHETYPE_RULES) {
+    if (test(occupants, c)) return id;
+  }
   return 'salon_familial';
 }
 
 /** Ce que chaque décor pose dans la pièce, en plus des affaires de chacun. */
 const ARCHETYPE_PROPS = {
   vide: ['drap_meuble', 'cartons'],
-  studio_etudiant: ['cartons', 'livres'],
-  salon_familial: ['jouets', 'panier_linge'],
-  cuisine_populaire: ['casseroles', 'epices', 'panier_linge'],
-  chambre_ado: ['ampli', 'skate'],
-  couple: ['bouquet'],
-  retraite: ['napperon', 'tricot'],
-  gamer: ['double_ecran', 'led', 'manettes'],
-  artiste: ['toiles'],
-  colocation: ['bouteilles', 'chaussures_tas'],
+  squat: ['cartons', 'bouteilles', 'clutter'],
+  en_renovation: ['etabli', 'cartons', 'toiles'],
+  airbnb: ['valises', 'napperon'],
+  tatoueur: ['etabli', 'toiles'],
+  coiffeur: ['miroir_pro', 'produits'],
+  musicien: ['guitare', 'ampli'],
+  psychologue: ['livres', 'divan'],
+  militaire: ['cartons', 'halteres'],
+  artiste: ['chevalet', 'toiles'],
   bureau_domicile: ['ordinateur', 'imprimante'],
+  accumulateur: ['cartons', 'clutter', 'livres', 'bouteilles'],
+  ultra_propre: ['produits'],
+  minimaliste: [],
+  collectionneur: ['vitrine', 'livres'],
+  rempli_de_plantes: ['jungle'],
+  aquariums: ['aquarium'],
+  tres_religieux: ['napperon', 'vitrine'],
+  boheme: ['tapis_mural', 'guitare', 'jungle'],
+  brocante: ['vitrine', 'cartons', 'napperon'],
+  fan_de_foot: ['echarpe_club', 'ecran_geant'],
+  fan_de_mangas: ['figurines', 'livres'],
+  gamer: ['double_ecran', 'led', 'manettes'],
+  influenceur: ['ring_light', 'led'],
+  ancien_boxeur: ['sac_frappe', 'vitrine'],
   sport_maison: ['velo_appart', 'halteres', 'tapis_yoga'],
+  couple_toxique: ['bouteilles', 'clutter'],
+  famille_recomposee: ['jouets', 'panier_linge', 'cartons'],
+  etudiant_erasmus: ['valises', 'cartons', 'livres'],
+  studio_etudiant: ['cartons', 'livres'],
+  chambre_ado: ['ampli', 'skate'],
+  jeune_parent: ['berceau', 'panier_linge', 'jouets'],
+  colocation: ['bouteilles', 'chaussures_tas'],
+  fete_permanente: ['bouteilles', 'led', 'ampli'],
+  retraite: ['napperon', 'tricot'],
+  cuisine_populaire: ['casseroles', 'epices', 'panier_linge'],
+  salon_familial: ['jouets', 'panier_linge'],
+  couple: ['bouquet'],
+  micro_appartement: ['cartons'],
+  loft_industriel: ['toiles', 'vitrine'],
 };
 
 /**
@@ -7109,6 +7377,7 @@ function propsFor(world, apt, occupants) {
 }
 __x.EXTRAS = EXTRAS;
 __x.planFor = planFor;
+__x.ARCHETYPE_RULES = ARCHETYPE_RULES;
 __x.ARCHETYPES = ARCHETYPES;
 __x.archetypeFor = archetypeFor;
 __x.propsFor = propsFor;
@@ -9246,34 +9515,92 @@ for (const a of ARCHETYPES) {
 }
 
 // --- Ambiances de façade ---
-// Un calque posé derrière l'immeuble : le ciel et le quartier. Six moments.
-for (const [id, role] of [
-  ['nuit', 'Nuit calme sur le quartier'],
+// Le calque posé derrière l'immeuble : le ciel et le quartier. Vingt-cinq
+// moments, et chacun doit pouvoir arriver — une image qu'aucun état du
+// monde ne peut déclencher ne serait jamais vue.
+const AMBIANCES = [
+  ['jour_clair', 'Plein jour, ciel dégagé'],
   ['soiree', 'Début de soirée, lumières chaudes'],
+  ['nuit', 'Nuit calme sur le quartier'],
   ['aube', 'Aube, ciel rose et bleu'],
+  ['coucher_soleil', 'Coucher de soleil sur les toits'],
   ['pluie', 'Jour pluvieux, gris et lavé'],
+  ['orage', 'Orage, éclairs au-dessus des toits'],
+  ['neige', 'Il neige sur le quartier'],
+  ['petite_neige', 'Quelques flocons, à peine'],
+  ['brouillard', 'Brouillard : l\'immeuble d\'en face a disparu'],
   ['canicule', 'Canicule, lumière blanche écrasante'],
-  ['hiver', 'Hiver, ciel bas et froid'],
-]) {
+  ['grand_froid', 'Grand froid, ciel dur et net'],
+  ['vent_fort', 'Vent fort, nuages qui filent'],
+  ['tempete', 'Tempête, ciel noir en plein jour'],
+  ['pollution', 'Air lourd, horizon jaune'],
+  ['arc_en_ciel', 'Un arc-en-ciel après la pluie'],
+  ['coupure_courant', 'Panne de courant : tout le quartier est noir'],
+  ['pleine_lune', 'Pleine lune, très basse'],
+  ['feu_artifice', 'Feu d\'artifice au-dessus des toits'],
+  ['noel', 'Noël, guirlandes aux fenêtres'],
+  ['halloween', 'Halloween, citrouilles et lumières orange'],
+  ['nouvel_an', 'Nouvel an, minuit passé'],
+  ['printemps', 'Printemps, premiers arbres en fleur'],
+  ['automne', 'Automne, feuilles et lumière rase'],
+  ['apocalyptique', 'Un ciel qu\'on ne reverra pas'],
+];
+for (const [id, role] of AMBIANCES) {
   slot(`ambiance/${id}`, { dir: 'ambiances', name: id, w: 1920, h: 1080, role });
 }
 
 // --- Portraits ---
 // Le visage d'un habitant dans sa fiche. Ce ne sont pas des portraits de
 // personnages nommés : c'est une TROUPE. Chaque habitant se voit attribuer
-// un comédien de son gabarit, une fois pour toutes. Six portraits par
-// gabarit suffisent à ce qu'on ne voie pas la répétition dans une fiche
-// qu'on ouvre un habitant à la fois.
-const PORTRAITS_PAR_GABARIT = 6;
-for (const morpho of Object.keys(MORPHO)) {
-  for (let i = 1; i <= PORTRAITS_PAR_GABARIT; i++) {
-    const n = String(i).padStart(2, '0');
-    slot(`portrait/${morpho}-${n}`, {
-      dir: 'portraits', name: `${morpho}-${n}`, w: 512, h: 512,
+// un comédien de son gabarit, une fois pour toutes. Les effectifs suivent
+// la pyramide des âges d'un immeuble : beaucoup d'adultes, moins d'enfants.
+const PORTRAITS_PAR_GABARIT = {
+  enfant: 20, ado: 20, homme: 40, femme: 40, mature: 25, senior: 25,
+};
+for (const [morpho, n] of Object.entries(PORTRAITS_PAR_GABARIT)) {
+  for (let i = 1; i <= n; i++) {
+    const num = String(i).padStart(2, '0');
+    slot(`portrait/${morpho}-${num}`, {
+      dir: 'portraits', name: `${morpho}-${num}`, w: 512, h: 512,
       role: `Portrait ${MORPHO[morpho].label.toLowerCase()} n°${i}, buste, fond transparent`,
       morpho,
     });
   }
+}
+
+// --- Commerces ---
+// Le rez-de-chaussée. L'immeuble a un local commercial ; on doit pouvoir
+// entrer dedans comme dans un appartement.
+const COMMERCES = [
+  ['cafe', 'Café de quartier'],
+  ['pharmacie', 'Pharmacie'],
+  ['boulangerie', 'Boulangerie'],
+  ['tabac', 'Bureau de tabac'],
+  ['salon_coiffure', 'Salon de coiffure'],
+  ['laverie', 'Laverie automatique'],
+  ['salle_de_sport', 'Salle de sport'],
+  ['supermarche', 'Supérette'],
+  ['ecole', 'Salle de classe'],
+  ['bibliotheque', 'Bibliothèque de quartier'],
+];
+for (const [id, role] of COMMERCES) {
+  slot(`commerce/${id}`, { dir: 'commerces', name: id, w: 1600, h: 900, role: `${role}, vu en coupe, sans personnage` });
+}
+
+// --- Vieillissement du bâtiment ---
+// L'immeuble se dégrade pendant la partie. Six états, du neuf au très usé.
+const AGES_BATIMENT = [0, 5, 15, 25, 40, 60];
+for (const an of AGES_BATIMENT) {
+  slot(`batiment/${an}ans`, {
+    dir: 'batiment', name: `${an}ans`, w: 1920, h: 1080,
+    // Un calque d'usure, PAS une façade complète : la géométrie de
+    // l'immeuble est tirée au sort à chaque partie (étages, colonnes), donc
+    // une façade peinte en entier ne tomberait jamais en face. Ce qu'on
+    // pose par-dessus, ce sont des traces.
+    role: an === 0 ? 'Calque d\'usure : rien, façade ravalée (peut rester vide)'
+      : `Calque d'usure après ${an} ans — taches, coulures, fissures, mousse. Fond transparent.`,
+    age: an,
+  });
 }
 
 // --- État du chargement ------------------------------------------------------
@@ -9363,7 +9690,7 @@ function portraitFor(person) {
   if (person._portrait !== undefined) return person._portrait;
   const morpho = person._look?.morpho ?? 'homme';
   const dispo = [];
-  for (let i = 1; i <= PORTRAITS_PAR_GABARIT; i++) {
+  for (let i = 1; i <= (PORTRAITS_PAR_GABARIT[morpho] ?? 0); i++) {
     const id = `portrait/${morpho}-${String(i).padStart(2, '0')}`;
     if (images.has(id)) dispo.push(id);
   }
@@ -9376,21 +9703,59 @@ function portraitFor(person) {
   return choisi;
 }
 
-/** L'ambiance de façade qui correspond à l'heure et au temps qu'il fait. */
+/**
+ * L'ambiance de façade du moment.
+ *
+ * L'ordre est une priorité, et il dit ce qui compte : une panne de courant
+ * passe avant une fête, une fête avant la météo, la météo avant l'heure.
+ * Ce qui frappe l'immeuble l'emporte sur ce qu'il traverse.
+ */
 function ambianceFor(world) {
+  const c = world.clock;
+
+  // 1. Ce qui arrache tout le reste.
+  if (world.apocalypse) return 'ambiance/apocalyptique';
+  if (world.forcedBlackoutDay === c.day && c.isNight) return 'ambiance/coupure_courant';
+
+  // 2. Ce qui se fête. Une seule journée par an, et on la voit.
+  if (world.fete && (c.isNight || c.hour >= 17)) return `ambiance/${world.fete}`;
+
+  // 3. Le temps qu'il fait. Il gagne sur l'heure : sous la tempête, on ne
+  //    distingue plus l'aube du crépuscule.
   const meteo = world.weather?.id ?? 'clair';
-  if (meteo === 'pluie' || meteo === 'neige') return 'ambiance/pluie';
-  if (meteo === 'canicule') return 'ambiance/canicule';
-  const h = world.clock.hour;
+  if (meteo !== 'clair' && meteo !== 'arc_en_ciel') return `ambiance/${meteo}`;
+  if (meteo === 'arc_en_ciel' && !c.isNight) return 'ambiance/arc_en_ciel';
+
+  // 4. La lune, seulement la nuit — sinon elle ne veut rien dire.
+  if (world.moonFull && c.isNight) return 'ambiance/pleine_lune';
+
+  // 5. L'heure.
+  const h = c.hour;
   if (h >= 22 || h < 5) return 'ambiance/nuit';
   if (h < 8) return 'ambiance/aube';
-  if (h >= 19) return 'ambiance/soiree';
-  if (world.clock.season === 0) return 'ambiance/hiver';
-  return null;   // plein jour ordinaire : le ciel dégradé fait très bien.
+  if (h >= 20) return 'ambiance/nuit';
+  if (h >= 18) return 'ambiance/coucher_soleil';
+  if (h >= 16) return 'ambiance/soiree';
+
+  // 6. Plein jour : la saison a le dernier mot.
+  if (c.season === 1) return 'ambiance/printemps';
+  if (c.season === 3) return 'ambiance/automne';
+  return 'ambiance/jour_clair';
 }
 
-/** Le décor d'un appartement, d'après ce que la pièce raconte déjà. */
+/** L'usure de la façade, d'après l'âge de l'immeuble dans cette partie. */
+function batimentFor(world) {
+  // L'immeuble avait déjà un âge au premier jour : la partie ne fait
+  // qu'ajouter à un compteur qui tournait avant elle.
+  const ans = (world.buildingAge ?? 30) + world.clock.year;
+  let choisi = AGES_BATIMENT[0];
+  for (const a of AGES_BATIMENT) if (a <= ans) choisi = a;
+  return `batiment/${choisi}ans`;
+}
+
+/** Le décor d'un lieu — appartement ou commerce du rez-de-chaussée. */
 function decorFor(apt) {
+  if (apt.commerce) return `commerce/${apt.commerce}`;
   return apt._archetype ? `decor/${apt._archetype}` : null;
 }
 
@@ -9407,7 +9772,10 @@ function drawCover(ctx, img, x, y, w, h) {
 }
 __x.ASSET_BASE = ASSET_BASE;
 __x.SLOTS = SLOTS;
+__x.AMBIANCES = AMBIANCES;
 __x.PORTRAITS_PAR_GABARIT = PORTRAITS_PAR_GABARIT;
+__x.COMMERCES = COMMERCES;
+__x.AGES_BATIMENT = AGES_BATIMENT;
 __x.EMBEDDED = EMBEDDED;
 __x.loadAssets = loadAssets;
 __x.asset = asset;
@@ -9415,6 +9783,7 @@ __x.hasAsset = hasAsset;
 __x.assetStatus = assetStatus;
 __x.portraitFor = portraitFor;
 __x.ambianceFor = ambianceFor;
+__x.batimentFor = batimentFor;
 __x.decorFor = decorFor;
 __x.drawCover = drawCover;
 return __x;
@@ -12566,7 +12935,7 @@ const __x = {};
 
 const { PALETTE, skyColors, ambientLight, shade, rgba, mixHex, pickStable } = __m["src/render/palette.js"];
 const { roundRect } = __m["src/render/ink.js"];
-const { asset, ambianceFor, drawCover } = __m["src/render/assets.js"];
+const { asset, ambianceFor, batimentFor, drawCover } = __m["src/render/assets.js"];
 const { occupantsOf } = __m["src/render/apartment.js"];
 const { SPECIAL_UNITS } = __m["src/sim/building.js"];
 
@@ -12706,6 +13075,21 @@ function drawFacade(ctx, world, layout, time, cache) {
 
   // --- Calque dur ---
   if (cache?.canvas) ctx.drawImage(cache.canvas, 0, 0);
+
+  // --- L'âge de l'immeuble ---
+  // Un calque de taches et de coulures posé sur la maçonnerie, d'autant
+  // plus marqué que les années passent. Il se cale sur le rectangle du
+  // bâtiment, quelle que soit sa géométrie.
+  const usure = asset(batimentFor(world));
+  if (usure) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(layout.x, layout.y, layout.w, layout.h);
+    ctx.clip();
+    ctx.globalAlpha = 0.55;
+    drawCover(ctx, usure, layout.x, layout.y, layout.w, layout.h);
+    ctx.restore();
+  }
 
   // --- Fenêtres vivantes ---
   for (const apt of world.apartments) {
@@ -14271,6 +14655,7 @@ const { NEED_LABEL, NEEDS } = __m["src/sim/needs.js"];
 const { linkLabel } = __m["src/sim/relations.js"];
 const { traitInfo, traitLabel } = __m["src/sim/traits.js"];
 const { jobLabel } = __m["src/content/jobs.js"];
+const { COMMERCE_PHRASES } = __m["src/sim/world.js"];
 const { g } = __m["src/core/text.js"];
 const { ASSET_BASE, EMBEDDED, portraitFor } = __m["src/render/assets.js"];
 
@@ -14324,7 +14709,11 @@ class Inspector {
     frag.appendChild(el('div', 'apt-sub',
       apt.hidden
         ? 'Aucun nom sur la boîte aux lettres.'
-        : `${apt.rooms} pièce${apt.rooms > 1 ? 's' : ''} · ${apt.rent} € · ${residents.length || 'aucun'} habitant${residents.length > 1 ? 's' : ''}`));
+        : apt.commerce
+          // « 0 pièce · 0 € · aucun habitant » pour une boulangerie, ce
+          // n'est pas une information, c'est un bug d'écriture.
+          ? 'Au rez-de-chaussée, sur la rue'
+          : `${apt.rooms} pièce${apt.rooms > 1 ? 's' : ''} · ${apt.rent} € · ${residents.length || 'aucun'} habitant${residents.length > 1 ? 's' : ''}`));
 
     if (apt.hidden) {
       frag.appendChild(el('div', 'blurb',
@@ -14334,9 +14723,11 @@ class Inspector {
     }
 
     if (!residents.length) {
-      frag.appendChild(el('div', 'blurb', apt.haunted
-        ? 'Vide depuis longtemps. On raconte des choses sur ce logement.'
-        : 'Logement vide. Il finira par se relouer.'));
+      frag.appendChild(el('div', 'blurb', apt.commerce
+        ? (COMMERCE_PHRASES[apt.commerce] ?? 'Le rez-de-chaussée du quartier.')
+        : apt.haunted
+          ? 'Vide depuis longtemps. On raconte des choses sur ce logement.'
+          : 'Logement vide. Il finira par se relouer.'));
       this.body.replaceChildren(frag);
       return;
     }

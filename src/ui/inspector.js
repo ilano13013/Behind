@@ -8,6 +8,7 @@ import { NEED_LABEL, NEEDS } from '../sim/needs.js';
 import { linkLabel } from '../sim/relations.js';
 import { traitInfo, traitLabel } from '../sim/traits.js';
 import { jobLabel } from '../content/jobs.js';
+import { COMMERCE_PHRASES } from '../sim/world.js';
 import { g } from '../core/text.js';
 import { ASSET_BASE, EMBEDDED, portraitFor } from '../render/assets.js';
 
@@ -61,7 +62,11 @@ export class Inspector {
     frag.appendChild(el('div', 'apt-sub',
       apt.hidden
         ? 'Aucun nom sur la boîte aux lettres.'
-        : `${apt.rooms} pièce${apt.rooms > 1 ? 's' : ''} · ${apt.rent} € · ${residents.length || 'aucun'} habitant${residents.length > 1 ? 's' : ''}`));
+        : apt.commerce
+          // « 0 pièce · 0 € · aucun habitant » pour une boulangerie, ce
+          // n'est pas une information, c'est un bug d'écriture.
+          ? 'Au rez-de-chaussée, sur la rue'
+          : `${apt.rooms} pièce${apt.rooms > 1 ? 's' : ''} · ${apt.rent} € · ${residents.length || 'aucun'} habitant${residents.length > 1 ? 's' : ''}`));
 
     if (apt.hidden) {
       frag.appendChild(el('div', 'blurb',
@@ -71,9 +76,11 @@ export class Inspector {
     }
 
     if (!residents.length) {
-      frag.appendChild(el('div', 'blurb', apt.haunted
-        ? 'Vide depuis longtemps. On raconte des choses sur ce logement.'
-        : 'Logement vide. Il finira par se relouer.'));
+      frag.appendChild(el('div', 'blurb', apt.commerce
+        ? (COMMERCE_PHRASES[apt.commerce] ?? 'Le rez-de-chaussée du quartier.')
+        : apt.haunted
+          ? 'Vide depuis longtemps. On raconte des choses sur ce logement.'
+          : 'Logement vide. Il finira par se relouer.'));
       this.body.replaceChildren(frag);
       return;
     }

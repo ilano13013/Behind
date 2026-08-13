@@ -18,6 +18,7 @@ import {
   TOPS, BOTTOMS, SHOES, ACCESSORY_CATALOG, OUTFIT_CONTEXTS,
 } from '../src/render/wardrobe.js';
 import { ARCHETYPES, archetypeFor, propsFor } from '../src/render/interior-plan.js';
+import { SLOTS, ambianceFor, batimentFor } from '../src/render/assets.js';
 import { World } from '../src/sim/world.js';
 
 let failures = 0;
@@ -52,7 +53,7 @@ console.log('\n— Le catalogue est celui de la planche, au nombre près —');
   check('les sept contextes de tenue', OUTFIT_CONTEXTS.length === 7);
   check('assez de hauts pour habiller les sept', TOPS.length >= 20, `${TOPS.length}`);
   check('les lunettes et les couvre-chefs sont là', GLASSES.length >= 8 && HATS.length >= 9);
-  check('les douze décors intérieurs', ARCHETYPES.length === 12);
+  check('les quarante décors intérieurs', ARCHETYPES.length === 40, `${ARCHETYPES.length}`);
 
   // Chaque accessoire du catalogue doit avoir un emplacement connu.
   const slots = new Set(['tete', 'yeux', 'torse', 'poignet', 'oreille', 'oreilles', 'main', 'peau', 'divers']);
@@ -158,36 +159,113 @@ console.log('\n— La morphologie suit l\'âge —');
 
 console.log('\n— Les intérieurs racontent qui y vit —');
 {
-  const habites = world.apartments.filter((a) => (world.occupancy.get(a.id) ?? []).length);
-  const kinds = new Set();
-  for (const apt of habites) {
-    const occ = world.occupancy.get(apt.id);
-    kinds.add(archetypeFor(world, apt, occ));
+  // Un décor qu'aucune règle ne peut atteindre serait un mensonge dans le
+  // catalogue d'images : on paierait un dessin que personne ne verrait
+  // jamais. On simule donc, et on relève ce qui sort.
+  const vus = new Map();
+  for (const seed of ['decors', 'quartier']) {
+    const w = new World({ seed });
+    for (let pas = 0; pas < 6 * 24 / 4; pas++) {
+      for (let i = 0; i < 288 * 4; i++) w.tick();
+      for (const a of w.apartments) {
+        if (a.special) continue;
+        const t = archetypeFor(w, a, w.occupancy.get(a.id) ?? []);
+        vus.set(t, (vus.get(t) ?? 0) + 1);
+      }
+    }
   }
-  check('plusieurs décors différents cohabitent', kinds.size >= 4,
-    `${kinds.size} types : ${[...kinds].join(', ')}`);
-  check('tous les décors tirés sont au catalogue',
-    [...kinds].every((k) => ARCHETYPES.includes(k)));
+  const jamais = ARCHETYPES.filter((a) => !vus.has(a));
+  check(`les ${ARCHETYPES.length} décors sont tous atteignables`, jamais.length === 0,
+    jamais.join(', '));
+  const total = [...vus.values()].reduce((a, b) => a + b, 0);
+  const top = Math.max(...vus.values());
+  check('aucun décor n\'écrase les autres', top < total * 0.16,
+    `le plus fréquent : ${Math.round((top / total) * 100)} %`);
 
-  const vide = world.apartments.find((a) => !(world.occupancy.get(a.id) ?? []).length && !a.special);
+  const vide = new World({ seed: 'decors' }).apartments
+    .find((a) => !a.special && !a.residents.length);
   if (vide) {
     check('un logement vide a ses meubles sous un drap',
-      propsFor(world, vide, []).includes('drap_meuble'));
+      propsFor(new World({ seed: 'decors' }), vide, []).includes('drap_meuble'));
   } else {
-    check('un logement vide a ses meubles sous un drap', true, 'aucun vide dans cet immeuble');
+    check('un logement vide a ses meubles sous un drap', true, 'aucun vide au départ');
   }
+}
+
+console.log('\n— Chaque image du catalogue peut être vue —');
+{
+  const par = (f) => SLOTS.filter((s) => s.id.startsWith(`${f}/`)).map((s) => s.id);
+  check('251 emplacements, comme l\'asset bible', SLOTS.length === 251, `${SLOTS.length}`);
+  check('40 décors', par('decor').length === 40);
+  check('25 ambiances', par('ambiance').length === 25);
+  check('170 portraits', par('portrait').length === 170);
+  check('10 commerces', par('commerce').length === 10);
+  check('6 calques d\'usure', par('batiment').length === 6);
+
+  // Les ambiances ordinaires : trois ans suffisent à toutes les voir.
+  const vues = new Set();
+  for (const seed of ['ciel', 'meteo']) {
+    const w = new World({ seed });
+    for (let i = 0; i < 288 * 24 * 3; i++) { w.tick(); if (i % 24 === 0) vues.add(ambianceFor(w)); }
+  }
+  // Trois ciels sont censés être rares — une tempête, une panne de courant,
+  // et celui dont personne ne reparle. Les exiger sur trois ans de
+  // simulation reviendrait à exiger qu'ils ne soient pas rares. On vérifie
+  // donc leur chemin de code plutôt que leur fréquence.
+  const rares = ['ambiance/tempete', 'ambiance/coupure_courant', 'ambiance/apocalyptique'];
+  const manque = par('ambiance').filter((a) => !vues.has(a) && !rares.includes(a));
+  check('toutes les ambiances ordinaires arrivent en trois ans', manque.length === 0,
+    manque.map((m) => m.split('/')[1]).join(', ') || 'aucune ne manque');
+
+  const w = new World({ seed: 'rares' });
+  w.apocalypse = true;
+  check('le ciel de fin du monde est atteignable',
+    ambianceFor(w) === 'ambiance/apocalyptique');
+  w.apocalypse = false;
+  w.forcedBlackoutDay = w.clock.day;
+  w.clock.tick = Math.floor(w.clock.tick / 288) * 288 + 288 * 0.1;  // une heure du matin
+  check('la panne de courant est atteignable',
+    ambianceFor(w) === 'ambiance/coupure_courant', ambianceFor(w));
+  w.forcedBlackoutDay = -1;
+  w.weather = { id: 'tempete', intensity: 1 };
+  check('la tempête est atteignable', ambianceFor(w) === 'ambiance/tempete');
+
+  // Les commerces : tirés à la génération, donc il suffit de compter.
+  const boutiques = new Set();
+  for (const seed of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
+    for (const a of new World({ seed }).apartments) if (a.commerce) boutiques.add(a.commerce);
+  }
+  check('les commerces se tirent bien au hasard', boutiques.size >= 6,
+    `${boutiques.size} types sur huit immeubles`);
+
+  // L'usure : l'immeuble n'a pas le même âge d'une partie à l'autre.
+  const usures = new Set();
+  for (const seed of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']) {
+    const w = new World({ seed });
+    usures.add(batimentFor(w));
+    w.clock.tick += 288 * 24 * 30;
+    usures.add(batimentFor(w));
+  }
+  check('les six âges de façade sont atteignables', usures.size === 6, `${usures.size}`);
 }
 
 console.log('\n— La météo tourne —');
 {
   const w = new World({ seed: 'meteo' });
-  const vus = new Set();
-  for (let j = 0; j < 60; j++) {
+  const vus = new Map();
+  const fetes = new Set();
+  for (let j = 0; j < 24 * 3; j++) {
     for (let i = 0; i < 288; i++) w.tick();
-    vus.add(w.weather.id);
+    vus.set(w.weather.id, (vus.get(w.weather.id) ?? 0) + 1);
+    if (w.fete) fetes.add(w.fete);
   }
-  check('plusieurs temps différents sur deux mois', vus.size >= 2, [...vus].join(', '));
-  check('il fait clair la plupart du temps', vus.has('clair'));
+  check('le ciel change vraiment', vus.size >= 6, `${vus.size} temps différents`);
+  // Un immeuble sous la pluie deux jours sur trois, ce n'est plus un
+  // immeuble : c'est un décor de catastrophe, et tout le monde y déprime.
+  const clair = (vus.get('clair') ?? 0) / (24 * 3);
+  check('il fait beau la plupart du temps', clair > 0.5,
+    `${Math.round(clair * 100)} % de jours clairs`);
+  check('les quatre fêtes de l\'année tombent', fetes.size === 4, [...fetes].join(', '));
 }
 
 console.log('\n— L\'apparence est stable —');

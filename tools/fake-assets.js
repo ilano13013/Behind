@@ -96,6 +96,8 @@ const teintes = {
   decor: [[196, 118, 62], [162, 92, 48]],
   ambiance: [[92, 116, 156], [72, 94, 132]],
   portrait: [[142, 118, 96], [116, 94, 76]],
+  commerce: [[168, 140, 78], [136, 112, 60]],
+  batiment: [[150, 120, 96], [124, 98, 78]],
 };
 
 let crees = 0;
@@ -103,7 +105,8 @@ let gardes = 0;
 
 for (const s of SLOTS) {
   const famille = s.id.split('/')[0];
-  const sub = { decor: 'decors', ambiance: 'ambiances', portrait: 'portraits' }[famille] ?? famille;
+  const sub = { decor: 'decors', ambiance: 'ambiances', portrait: 'portraits',
+    commerce: 'commerces', batiment: 'batiment' }[famille] ?? famille;
   const cible = path.join(dir, sub, `${path.basename(s.file, '.png')}.png`);
 
   // On ne touche JAMAIS à une vraie image livrée.
@@ -116,7 +119,7 @@ for (const s of SLOTS) {
   const sol = Math.round(s.h * 0.86);
   const buf = png(s.w, s.h, (x, y) => {
     // La ligne de sol, seulement là où elle veut dire quelque chose.
-    if (famille === 'decor' && Math.abs(y - sol) < 4) return [230, 60, 60];
+    if ((famille === 'decor' || famille === 'commerce') && Math.abs(y - sol) < 4) return [230, 60, 60];
     return ((x / 80 | 0) + (y / 80 | 0)) % 2 ? a : b;
   });
   fs.mkdirSync(path.dirname(cible), { recursive: true });

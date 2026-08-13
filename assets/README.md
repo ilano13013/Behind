@@ -24,118 +24,139 @@ Il n'y a rien d'autre à faire. Poser un fichier au bon nom suffit.
 
 ---
 
-## 1. Les douze décors — `decors/`
-
-**C'est de loin le meilleur rapport qualité / effort.** Douze images, et
-tout l'intérieur du jeu change de visage. Les habitants continuent d'être
-dessinés par-dessus : ils bougent, le décor non.
-
-`1600 × 900`, opaque (pas de transparence).
-
-### La contrainte qui compte
-
-L'appartement est vu **en coupe**, comme une maison de poupée : mur retiré,
-caméra bien en face, aucune perspective de fuite.
-
-```
-┌──────────────────────────────────────┐  ← haut de l'image
-│                                      │
-│   le mur, les meubles, la fenêtre    │
-│                                      │
-│ ─────────────────────────────────────│  ← LE SOL est ici, à 86 % de la hauteur
-│   plinthe / parquet                  │     (1600 × 900 → y = 774 px)
-└──────────────────────────────────────┘
-```
-
-**Les pieds des habitants se posent sur cette ligne.** Si elle est ailleurs,
-tout le monde flotte ou s'enfonce. C'est la seule contrainte vraiment dure
-de tout le dossier.
-
-Deux autres, plus souples :
-- **aucun personnage** dans l'image — le jeu les ajoute ;
-- **lumière neutre, plutôt jour** : le jeu repose lui-même la nuit, la lampe
-  allumée et le clignotement de la télé par-dessus.
-
-### La liste
-
-| Fichier | Ce que la pièce raconte |
-|---|---|
-| `studio_etudiant.png` | Une pièce, un lit, des cartons jamais défaits, des livres en pile |
-| `salon_familial.png` | Canapé fatigué, jouets par terre, panier de linge |
-| `cuisine_populaire.png` | Grande cuisine qui sert de salon, casseroles, épices, table centrale |
-| `chambre_ado.png` | Affiches, ampli, skate, lit défait, désordre revendiqué |
-| `couple.png` | Rangé, deux tasses, un bouquet, sans enfant |
-| `retraite.png` | Napperons, buffet, tricot, photos encadrées, télé imposante |
-| `gamer.png` | Double écran, bandeau LED, manettes, rideaux fermés |
-| `artiste.png` | Chevalet, toiles retournées contre le mur, pots de peinture |
-| `colocation.png` | Meubles dépareillés, bouteilles, tas de chaussures à l'entrée |
-| `bureau_domicile.png` | Bureau sérieux, imprimante, chaise correcte, plante |
-| `sport_maison.png` | Vélo d'appartement, haltères, tapis de yoga, miroir |
-| `vide.png` | Personne n'habite là : meubles sous des draps, volets mi-clos |
-
----
-
-## 2. Les six ambiances — `ambiances/`
-
-Le fond derrière l'immeuble : le ciel et le quartier. `1920 × 1080`, opaque.
-
-L'immeuble est dessiné **par-dessus, au centre**, sur environ 90 % de la
-largeur — donc le milieu de l'image sera caché. Ce qui compte, c'est le
-ciel en haut et les côtés.
-
-| Fichier | Moment |
-|---|---|
-| `nuit.png` | Nuit calme. Ciel profond, quelques fenêtres lointaines. |
-| `soiree.png` | Début de soirée, lumières chaudes qui s'allument. |
-| `aube.png` | Aube, rose et bleu, rue encore vide. |
-| `pluie.png` | Jour pluvieux, gris lavé. (Sert aussi pour la neige.) |
-| `canicule.png` | Lumière blanche écrasante, ciel délavé. |
-| `hiver.png` | Ciel bas, froid, sans soleil. |
-
-En plein jour ordinaire, aucune image n'est utilisée : le ciel dégradé du
-jeu suffit, et il suit l'heure minute par minute.
-
----
-
-## 3. Les trente-six portraits — `portraits/`
-
-Le visage d'un habitant dans sa fiche, quand on clique sur son nom.
-
-`512 × 512`, **fond transparent**, cadrage buste (épaules comprises), regard
-vers le joueur ou légèrement de trois quarts.
-
-**Ce ne sont pas des personnages nommés, c'est une troupe.** Chaque habitant
-se voit attribuer un comédien de son gabarit, une fois pour toutes, et le
-garde toute la partie. Six comédiens par gabarit suffisent : on n'ouvre
-qu'une fiche à la fois.
-
-| Gabarit | Fichiers | Qui |
-|---|---|---|
-| `enfant-01` … `-06` | 6 | moins de 12 ans |
-| `ado-01` … `-06` | 6 | 12 à 19 ans |
-| `homme-01` … `-06` | 6 | homme, 20 à 49 ans |
-| `femme-01` … `-06` | 6 | femme, 20 à 53 ans |
-| `mature-01` … `-06` | 6 | 50 à 67 ans |
-| `senior-01` … `-06` | 6 | 68 ans et plus |
-
-Variez les carnations, les coiffures et les tenues à l'intérieur de chaque
-gabarit : c'est un immeuble de quartier populaire, pas un catalogue.
-
-Un gabarit incomplet fonctionne : s'il n'y a que deux portraits d'enfant,
-les enfants se les partagent, et les autres gabarits gardent leur dessin.
-
----
-
 ## Ce qui ne peut PAS être remplacé par une image
 
 Les habitants **dans** l'appartement restent dessinés par le code, et ce
 n'est pas un choix d'économie.
 
 Ils marchent, se retournent, s'assoient, se couchent, vieillissent, changent
-de tenue selon la saison, portent douze expressions, et il y en a cent
+de tenue selon la saison, portent quarante expressions, et il y en a cent
 trente qui naissent, déménagent et meurent pendant la partie. Les figer en
 images demanderait, pour chaque comédien, une planche par pose × par
 direction × par tenue — et il n'y aurait toujours pas de vieillissement.
 
 Le compromis retenu est celui-ci : **décor peint, habitants animés.** C'est
 exactement la répartition d'un film d'animation.
+
+---
+
+# Le catalogue complet — 251 emplacements
+
+`node tools/check-assets.js` liste l'état de chacun. Ce qui suit est le
+détail des cinq familles.
+
+## 1. Les quarante décors — `decors/` · 1600 × 900 · opaque
+
+Le décor n'est pas choisi au hasard : il est **déduit** de qui habite là.
+Un tatoueur a un atelier, un accumulateur a des cartons jusqu'au plafond,
+un logement sans locataire a ses meubles sous un drap. `npm test` vérifie
+que les quarante peuvent tous sortir sur un immeuble simulé — aucune image
+ne serait payée pour n'être jamais vue.
+
+| Fichier | Qui vit là |
+|---|---|
+| `vide.png` | Personne. Meubles sous des draps, volets mi-clos |
+| `squat.png` | Des gens sans un sou et couverts de dettes |
+| `en_renovation.png` | Un bricoleur et un chantier qui dure |
+| `airbnb.png` | Des inconnus arrivés il y a moins de trois semaines |
+| `tatoueur.png` | Un artiste tatoué : table, flashs au mur, autoclave |
+| `coiffeur.png` | Salon improvisé : bac, fauteuil, miroir professionnel |
+| `musicien.png` | Instruments, ampli, mousse acoustique posée de travers |
+| `psychologue.png` | Cabinet à domicile : divan, bibliothèque, lumière douce |
+| `militaire.png` | Rangé au cordeau, lit au carré, malles |
+| `artiste.png` | Chevalet, toiles retournées, pots de peinture |
+| `bureau_domicile.png` | Bureau sérieux, imprimante, chaise correcte |
+| `couple_toxique.png` | Deux vies qui cohabitent mal : deux camps dans la pièce |
+| `famille_recomposee.png` | Un enfant, un adulte qui n'est pas son parent |
+| `etudiant_erasmus.png` | Valises encore là, drapeau, cartes postales |
+| `studio_etudiant.png` | Une pièce, un lit, des cartons jamais défaits |
+| `jeune_parent.png` | Berceau, tapis d'éveil, linge partout |
+| `colocation.png` | Meubles dépareillés, tas de chaussures à l'entrée |
+| `fete_permanente.png` | Ça ne s'arrête jamais : bouteilles, guirlandes, enceinte |
+| `accumulateur.png` | On ne voit plus le sol |
+| `ultra_propre.png` | Rien ne dépasse. Rien du tout |
+| `minimaliste.png` | Trois objets, choisis |
+| `collectionneur.png` | Vitrines, séries complètes, étiquettes |
+| `rempli_de_plantes.png` | Une jungle, et un passage étroit |
+| `aquariums.png` | Plusieurs bacs, lumière bleue, filtres qui ronronnent |
+| `tres_religieux.png` | Images pieuses, napperons, ordre ancien |
+| `boheme.png` | Tapis au mur, coussins par terre, tentures |
+| `brocante.png` | Rien n'a été acheté neuf |
+| `fan_de_foot.png` | Écharpes, écran géant, canapé face au match |
+| `fan_de_mangas.png` | Figurines, murs d'affiches, étagères de tomes |
+| `gamer.png` | Double écran, bandeau LED, rideaux fermés |
+| `influenceur.png` | Anneau lumineux, fond neutre, désordre hors cadre |
+| `ancien_boxeur.png` | Sac de frappe, coupes, photos jaunies |
+| `sport_maison.png` | Vélo d'appartement, haltères, tapis, miroir |
+| `chambre_ado.png` | Affiches, ampli, skate, lit défait |
+| `retraite.png` | Napperons, buffet, tricot, télé imposante |
+| `cuisine_populaire.png` | Grande cuisine qui sert de salon, table centrale |
+| `salon_familial.png` | Canapé fatigué, jouets, panier de linge |
+| `couple.png` | Rangé, deux tasses, un bouquet |
+| `micro_appartement.png` | Neuf mètres carrés, tout est plié |
+| `loft_industriel.png` | Volume, verrière, poutres apparentes |
+
+**La ligne de sol est à 86 % de la hauteur** (y = 774 px sur 900). Les
+pieds des habitants s'y posent. C'est la seule contrainte dure.
+
+## 2. Les vingt-cinq ambiances — `ambiances/` · 1920 × 1080 · opaque
+
+L'ordre de priorité du jeu : ce qui frappe l'immeuble l'emporte sur ce
+qu'il traverse — une panne de courant avant une fête, une fête avant la
+météo, la météo avant l'heure.
+
+`jour_clair` · `soiree` · `nuit` · `aube` · `coucher_soleil` · `pluie` ·
+`orage` · `neige` · `petite_neige` · `brouillard` · `canicule` ·
+`grand_froid` · `vent_fort` · `tempete` · `pollution` · `arc_en_ciel` ·
+`coupure_courant` · `pleine_lune` · `feu_artifice` · `noel` · `halloween` ·
+`nouvel_an` · `printemps` · `automne` · `apocalyptique`
+
+L'immeuble est dessiné **par-dessus, au centre**, sur ~90 % de la largeur :
+le milieu sera caché. Ce qui compte, c'est le ciel et les côtés.
+
+Trois sont volontairement rares : `tempete`, `coupure_courant`,
+`apocalyptique`. Ce dernier arrive une fois par décennie environ, sans
+explication, et personne n'en reparle le lendemain.
+
+## 3. Les cent soixante-dix portraits — `portraits/` · 512 × 512 · **transparent**
+
+Une troupe, pas des personnages nommés. Chaque habitant se voit attribuer
+un comédien de son gabarit, une fois pour toutes.
+
+| Gabarit | Fichiers | Qui |
+|---|---|---|
+| `enfant-01` … `-20` | 20 | moins de 12 ans |
+| `ado-01` … `-20` | 20 | 12 à 19 ans |
+| `homme-01` … `-40` | 40 | homme, 20 à 49 ans |
+| `femme-01` … `-40` | 40 | femme, 20 à 53 ans |
+| `mature-01` … `-25` | 25 | 50 à 67 ans |
+| `senior-01` … `-25` | 25 | 68 ans et plus |
+
+Cadrage buste, épaules comprises, regard vers le joueur ou de trois quarts.
+Un gabarit incomplet marche : avec deux portraits d'enfant, les enfants se
+les partagent.
+
+## 4. Les dix commerces — `commerces/` · 1600 × 900 · opaque
+
+Le rez-de-chaussée. Chaque immeuble tire le sien à la génération, et on
+peut y entrer comme dans un appartement.
+
+`cafe` · `pharmacie` · `boulangerie` · `tabac` · `salon_coiffure` ·
+`laverie` · `salle_de_sport` · `supermarche` · `ecole` · `bibliotheque`
+
+Mêmes règles que les décors, **ligne de sol à 86 %** comprise.
+
+## 5. Les six usures — `batiment/` · 1920 × 1080 · **transparent**
+
+`0ans` · `5ans` · `15ans` · `25ans` · `40ans` · `60ans`
+
+**Ce ne sont pas des façades**, ce sont des **calques de traces** : taches,
+coulures sous les appuis, fissures, mousse, peinture qui cloque. La
+géométrie de l'immeuble est tirée au sort à chaque partie — étages,
+colonnes, largeur — donc une façade peinte en entier ne tomberait jamais en
+face. Le calque, lui, se pose sur n'importe quelle maçonnerie.
+
+`0ans` peut rester vide : un immeuble ravalé de la veille n'a pas de trace.
+
+L'immeuble commence la partie avec un âge tiré au sort entre 0 et 45 ans,
+puis vieillit avec elle.

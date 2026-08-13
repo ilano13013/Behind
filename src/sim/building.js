@@ -79,7 +79,14 @@ export function makeApartments(rng, floors, cols) {
     for (const a of ground) {
       if (a.col === hallCol) a.special = SPECIAL_UNITS.HALL;
       else if (a.col === 0) a.special = SPECIAL_UNITS.LOGE;
-      else if (a.col >= cols - 2) a.special = SPECIAL_UNITS.COMMERCE;
+      else if (a.col >= cols - 2) {
+        a.special = SPECIAL_UNITS.COMMERCE;
+        // Le rez-de-chaussée fait partie du quartier : un immeuble avec une
+        // boulangerie ne vit pas comme un immeuble avec une laverie.
+        a.commerce = rng.pick(['cafe', 'pharmacie', 'boulangerie', 'tabac',
+          'salon_coiffure', 'laverie', 'salle_de_sport', 'supermarche',
+          'ecole', 'bibliotheque']);
+      }
     }
   }
   // Une cage d'escalier verticale, visible de l'extérieur.

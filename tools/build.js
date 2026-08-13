@@ -116,7 +116,8 @@ function collectAssets() {
       bytes += buf.length;
       // L'identifiant d'emplacement, tel que assets.js le construit :
       // « decors/gamer.png » → « decor/gamer ».
-      const famille = { decors: 'decor', ambiances: 'ambiance', portraits: 'portrait' }[sub] ?? sub;
+      const famille = { decors: 'decor', ambiances: 'ambiance', portraits: 'portrait',
+        commerces: 'commerce', batiment: 'batiment' }[sub] ?? sub;
       entries.push([`${famille}/${path.basename(f, ext)}`,
         `data:${MIME[ext]};base64,${buf.toString('base64')}`]);
     }
@@ -134,7 +135,8 @@ const assets = collectAssets();
   if (fs.existsSync(dir)) {
     const liste = assets.entries.map(([id]) => {
       const famille = id.split('/')[0];
-      const sub = { decor: 'decors', ambiance: 'ambiances', portrait: 'portraits' }[famille] ?? famille;
+      const sub = { decor: 'decors', ambiance: 'ambiances', portrait: 'portraits',
+        commerce: 'commerces', batiment: 'batiment' }[famille] ?? famille;
       const base = id.split('/').slice(1).join('/');
       const ext = fs.existsSync(path.join(dir, sub, `${base}.webp`)) ? '.webp' : '.png';
       return { id, file: `${sub}/${base}${ext}` };
