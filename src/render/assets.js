@@ -186,6 +186,12 @@ export function loadAssets(onProgress) {
     return;
   }
 
+  // Ouvert en double-cliquant, sans serveur : un fetch sur file:// est
+  // refusé par la politique d'origine du navigateur, et l'erreur s'affiche
+  // en rouge dans la console même quand on l'attrape. Or le fichier unique
+  // porte déjà ses images : s'il n'y en a pas, il n'y a rien à charger.
+  if (typeof location !== 'undefined' && location.protocol === 'file:') return;
+
   // Développement : on lit le manifeste, et lui seul.
   fetch(`${ASSET_BASE}manifest.json`)
     .then((r) => (r.ok ? r.json() : []))

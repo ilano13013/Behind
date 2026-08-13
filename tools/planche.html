@@ -16,7 +16,7 @@
 <canvas id="c0"></canvas>
 <h2 id="t1">Habitants de l'immeuble</h2>
 <canvas id="c1"></canvas>
-<h2>Les douze expressions</h2>
+<h2>Les quarante expressions</h2>
 <canvas id="c2"></canvas>
 <h2>Les sept tenues</h2>
 <canvas id="c5"></canvas>
@@ -27,7 +27,7 @@
 import { World } from '../src/sim/world.js';
 import { drawCharacter, emotionOf } from '../src/render/character.js';
 import { appearance, MORPHO, heightFactor, OUTFIT_CONTEXTS } from '../src/render/wardrobe.js';
-import { POSES } from '../src/render/anim.js';
+import { POSES, EXPRESSIONS } from '../src/render/anim.js';
 
 const world = new World({ seed: new URLSearchParams(location.search).get('seed') ?? 'planche' });
 const people = world.livingPeople();
@@ -92,10 +92,9 @@ grid(document.getElementById('c1'), cast, 8, 130, 190, (ctx, p, cx, cy, w, h) =>
 });
 
 // 2 — Les douze expressions sur un même visage.
-const EXPRESSIONS = ['neutre', 'content', 'surpris', 'choque', 'colere', 'triste',
-  'reveur', 'energique', 'mefiant', 'effraye', 'amoureux', 'fatigue'];
-const model = people.find((p) => p.age > 24 && p.age < 50) ?? people[0];
-grid(document.getElementById('c2'), EXPRESSIONS, 6, 130, 180, (ctx, kind, cx, cy, w, h) => {
+const model = people.find((p) => p.age > 24 && p.age < 50
+  && ![1, 4, 14, 24, 26, 28, 30].includes(appearance(p).hairStyle)) ?? people[0];
+grid(document.getElementById('c2'), Object.keys(EXPRESSIONS), 8, 148, 190, (ctx, kind, cx, cy, w, h) => {
   model._startle = { kind, ttl: 99, max: 99 };
   // On laisse le lissage arriver à destination avant de capturer.
   for (let i = 0; i < 90; i++) {
@@ -105,8 +104,8 @@ grid(document.getElementById('c2'), EXPRESSIONS, 6, 130, 180, (ctx, kind, cx, cy
   ctx.beginPath();
   ctx.rect(cx - w / 2 + 2, cy + 2, w - 4, h - 22);
   ctx.clip();
-  const k = 3.8 / heightFactor(model.age);
-  drawCharacter(ctx, model, cx, cy + h * k * 0.947, h * k, { time: 1.5, dt: 1 / 60, pose: 'idle' });
+  const k = 4.2 / heightFactor(model.age);
+  drawCharacter(ctx, model, cx, cy + h * k * 0.952, h * k, { time: 1.5, dt: 1 / 60, pose: 'idle' });
   ctx.restore();
   label(ctx, kind, cx, cy + h - 6);
   model._startle = null;
@@ -125,13 +124,13 @@ grid(document.getElementById('c5'), cases, 7, 132, 200, (ctx, { p, c }, cx, cy, 
 
 // 3 — Toutes les poses du catalogue.
 const poses = Object.keys(POSES);
-grid(document.getElementById('c3'), poses, 8, 132, 176, (ctx, pose, cx, cy, w, h) => {
+grid(document.getElementById('c3'), poses, 10, 118, 158, (ctx, pose, cx, cy, w, h) => {
   const p = people[(poses.indexOf(pose) * 7) % people.length];
   p._rig = null;
   for (let i = 0; i < 120; i++) {
     drawCharacter(ctx, p, -9999, 0, 10, { time: i / 60, dt: 1 / 60, pose });
   }
-  drawCharacter(ctx, p, cx, cy + h - 24, h - 46, { time: 2, dt: 1 / 60, pose });
+  drawCharacter(ctx, p, cx, cy + h - 22, h - 42, { time: 2, dt: 1 / 60, pose });
   label(ctx, pose, cx, cy + h - 8);
   p._rig = null;
 });

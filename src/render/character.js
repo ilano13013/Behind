@@ -34,8 +34,11 @@ const UNITS = LEG + TORSO + NECK + HEAD * 2;   // hauteur totale du pantin
 /**
  * Ce que le visage doit raconter, en un mot.
  *
- * Douze expressions, comme sur la planche. L'ordre des tests est l'ordre des
- * priorités : un sursaut passe avant l'humeur, une colère avant la fatigue.
+ * Quarante visages existent (voir anim.js) ; c'est ici qu'on décide lequel
+ * porter. L'ordre des tests EST l'ordre des priorités : un sursaut passe
+ * avant l'humeur, une colère avant la fatigue, un corps malade avant un
+ * moral bas. On lit d'abord ce qui arrive, ensuite ce qu'on fait, enfin ce
+ * qu'on est.
  */
 export function emotionOf(person) {
   const startle = startleOf(person);
@@ -43,24 +46,69 @@ export function emotionOf(person) {
 
   const mood = person.mood ?? 60;
   const stress = person.stress ?? 20;
+  const sante = person.health ?? 90;
   const energie = person.needs?.get?.('energie') ?? 70;
+  const social = person.needs?.get?.('social') ?? 70;
+  const plaisir = person.needs?.get?.('plaisir') ?? 70;
   const act = person.action?.id;
+  const P = person.personality;
+  const trait = (t) => P?.has?.(t) === true;
+  const f = (x) => Math.max(0.3, Math.min(1, x));
 
-  if (act === 'dormir' || act === 'soigner') return { kind: 'dort', force: 1 };
-  if (act === 'confronter' || act === 'plaindre') return { kind: 'colere', force: 1 };
-  if (act === 'flirter') return { kind: 'amoureux', force: 0.9 };
-  if (act === 'espionner') return { kind: 'mefiant', force: 0.85 };
-  if (stress > 84) return { kind: 'effraye', force: Math.min(1, (stress - 78) / 22) };
-  if (act === 'ruminer' || mood < 30) return { kind: 'triste', force: Math.min(1, (45 - mood) / 30) };
-  if (stress > 66) return { kind: 'stresse', force: Math.min(1, (stress - 60) / 40) };
-  if (energie < 26) return { kind: 'fatigue', force: Math.min(1, (30 - energie) / 30) };
-  if (act === 'sport' || act === 'fete' || act === 'musique' || act === 'betise') {
-    return { kind: 'energique', force: 0.8 };
+  // --- 1. Ce qu'on est en train de faire ---
+  if (act === 'dormir' || act === 'soigner') return { kind: 'endormie', force: 1 };
+  if (act === 'insomnie') return { kind: 'fatiguee', force: 0.9 };
+  if (act === 'confronter' || act === 'plaindre') {
+    // On ne s'énerve pas tous pareil : le colérique crie, le rancunier toise.
+    return { kind: trait('colerique') ? 'colere' : 'menace', force: 1 };
   }
-  if (mood > 76) return { kind: 'content', force: Math.min(1, (mood - 70) / 30) };
-  if (act === 'lire' || act === 'insomnie' || act === 'rien') {
-    return { kind: 'reveur', force: 0.6 };
+  if (act === 'flirter') return { kind: 'amoureuse', force: 0.9 };
+  if (act === 'reconcilier') return { kind: 'honteuse', force: 0.7 };
+  if (act === 'espionner') return { kind: 'suspicieuse', force: 0.85 };
+  if (act === 'boire') {
+    return { kind: (person.addiction ?? 0) > 0.4 ? 'ivre' : 'resignee', force: 0.8 };
   }
+  if (act === 'bricoler' || act === 'teletravail' || act === 'chercher_emploi') {
+    return { kind: 'concentree', force: 0.7 };
+  }
+  if (act === 'sport') return { kind: 'determinee', force: 0.8 };
+  if (act === 'fete' || act === 'musique' || act === 'betise') {
+    return { kind: mood > 80 ? 'fou_rire' : 'euphorique', force: 0.85 };
+  }
+  if (act === 'famille_temps' || act === 'visiter') {
+    return { kind: 'attendrie', force: 0.6 };
+  }
+  if (act === 'lire') return { kind: 'curieuse', force: 0.6 };
+
+  // --- 2. Ce que le corps subit ---
+  if (sante < 45) return { kind: 'malade', force: f((60 - sante) / 40) };
+  if (stress > 90) return { kind: 'panique', force: 1 };
+  if (stress > 82) return { kind: 'peur', force: f((stress - 78) / 22) };
+  if (energie < 14) return { kind: 'assoupie', force: 0.9 };
+
+  // --- 3. Ce qui pèse sur le moral ---
+  if (act === 'ruminer' || mood < 22) {
+    return { kind: trait('anxieux') ? 'inquiete' : 'triste', force: f((45 - mood) / 30) };
+  }
+  if (mood < 34) return { kind: 'resignee', force: f((45 - mood) / 30) };
+  if (stress > 66) return { kind: 'stressee', force: f((stress - 60) / 40) };
+  if (person.debt > 1200) return { kind: 'inquiete', force: 0.7 };
+  if (energie < 28) return { kind: 'fatiguee', force: f((32 - energie) / 30) };
+
+  // --- 4. Ce qui manque ---
+  if (social < 22) return { kind: 'ennui', force: 0.7 };
+  if (plaisir < 22) return { kind: 'ennui', force: 0.6 };
+
+  // --- 5. Ce qu'on est, quand rien ne presse ---
+  if (mood > 84) return { kind: 'heureuse', force: f((mood - 70) / 30) };
+  if (mood > 74) return { kind: trait('drole') ? 'amusee' : 'soulagee', force: 0.6 };
+  if (person.isOld && trait('rancunier')) return { kind: 'mepris', force: 0.5 };
+  if (person.isOld) return { kind: 'nostalgique', force: 0.5 };
+  if (trait('jaloux') && person.relations?.partner()) return { kind: 'jalousie', force: 0.6 };
+  if (trait('orgueilleux') && mood > 62) return { kind: 'fiere', force: 0.5 };
+  if (trait('discret') || trait('anxieux')) return { kind: 'timide', force: 0.5 };
+  if (trait('curieux')) return { kind: 'curieuse', force: 0.5 };
+  if (act === 'rien' || act === undefined) return { kind: 'songeuse', force: 0.6 };
   return { kind: 'neutre', force: 0.3 };
 }
 
@@ -528,8 +576,6 @@ function drawHead(ctx, person, look, c, r, t, silhouette) {
   const eyeDx = r * 0.36;
   const E = EYES[look.eyes] ?? EYES[0];
 
-  drawBrows(ctx, look, c, r, tx, eyeY, eyeDx);
-
   // Les yeux d'abord, les lunettes ensuite : des verres translucides
   // laissent voir le regard au lieu de l'effacer.
   for (const side of [-1, 1]) drawEye(ctx, E, c, r, side, tx, eyeY, eyeDx, turn);
@@ -552,11 +598,19 @@ function drawHead(ctx, person, look, c, r, t, silhouette) {
   ctx.beginPath();
   hairShape(ctx, r);
   paint(ctx, look.hair, true, LINE * 0.9);
+
+  // Les sourcils PAR-DESSUS les cheveux. C'est contre-intuitif — une frange
+  // passe devant, en vrai — mais les sourcils sont le premier canal
+  // d'expression du visage : dessinés sous la coiffure, la moitié des
+  // quarante expressions devenaient illisibles.
+  drawBrows(ctx, look, c, r, tx, eyeY, eyeDx);
+
   drawHeadAccessory(ctx, look, r);
   if (look.hat) look.hat.draw(ctx, r, look.hat.color, false);
 
   const emo = emotionOf(person);
-  if (emo.kind === 'amoureux' || emo.kind === 'content' || (person.mood ?? 60) > 82) {
+  if (['amoureuse', 'heureuse', 'timide', 'attendrie'].includes(emo.kind)
+    || (person.mood ?? 60) > 82) {
     ctx.fillStyle = 'rgba(214,102,102,0.28)';
     for (const side of [-1, 1]) {
       ctx.beginPath();
@@ -565,7 +619,7 @@ function drawHead(ctx, person, look, c, r, t, silhouette) {
     }
   }
   // Une goutte de sueur : la peur et le stress se lisent sur la tempe.
-  if (emo.kind === 'effraye' || emo.kind === 'stresse') {
+  if (['peur', 'panique', 'stressee', 'malade'].includes(emo.kind)) {
     ctx.beginPath();
     ctx.moveTo(r * 0.86, -r * 0.62);
     ctx.quadraticCurveTo(r * 1.04, -r * 0.36, r * 0.86, -r * 0.28);
@@ -907,7 +961,7 @@ function drawEmotes(ctx, person, x, y, h, o, lying) {
   ctx.save();
   ctx.globalAlpha = o.alpha ?? 1;
 
-  if (emo.kind === 'dort') {
+  if (emo.kind === 'endormie') {
     ctx.font = `bold ${Math.round(h * 0.14)}px "Trebuchet MS", sans-serif`;
     for (let i = 0; i < 3; i++) {
       const p = (t * 0.32 + i * 0.33) % 1;
@@ -920,7 +974,7 @@ function drawEmotes(ctx, person, x, y, h, o, lying) {
       ctx.strokeText('z', zx, zy);
       ctx.fillText('z', zx, zy);
     }
-  } else if (emo.kind === 'stresse' || emo.kind === 'effraye') {
+  } else if (['stressee', 'peur', 'panique', 'inquiete'].includes(emo.kind)) {
     const p = (t * 0.9) % 1;
     ctx.beginPath();
     const dx = x + h * 0.15;
@@ -933,7 +987,7 @@ function drawEmotes(ctx, person, x, y, h, o, lying) {
     ctx.strokeStyle = INK;
     ctx.lineWidth = 1.6;
     ctx.stroke();
-  } else if (emo.kind === 'colere') {
+  } else if (['colere', 'menace', 'irritee'].includes(emo.kind)) {
     // La petite croix de colère, tracée à l'encre.
     const cx = x + h * 0.15;
     const cy = topY + h * 0.05;
@@ -947,21 +1001,21 @@ function drawEmotes(ctx, person, x, y, h, o, lying) {
       ctx.lineTo(cx - Math.cos(a) * s, cy - Math.sin(a) * s);
       ctx.stroke();
     }
-  } else if (emo.kind === 'amoureux') {
+  } else if (emo.kind === 'amoureuse') {
     for (let i = 0; i < 2; i++) {
       const p = (t * 0.45 + i * 0.5) % 1;
       ctx.globalAlpha = (o.alpha ?? 1) * (1 - p);
       drawHeart(ctx, x + h * 0.15 + Math.sin(p * 6) * h * 0.02, topY - p * h * 0.28, h * 0.05, '#d9556f');
     }
-  } else if (emo.kind === 'surpris' || emo.kind === 'choque') {
+  } else if (emo.kind === 'surprise' || emo.kind === 'choquee') {
     ctx.font = `bold ${Math.round(h * 0.19)}px "Trebuchet MS", sans-serif`;
-    ctx.fillStyle = emo.kind === 'choque' ? '#b83a2e' : '#e0a83f';
+    ctx.fillStyle = emo.kind === 'choquee' ? '#b83a2e' : '#e0a83f';
     ctx.strokeStyle = INK;
     ctx.lineWidth = 2.4;
     const bounce = Math.abs(Math.sin(t * 8)) * h * 0.03;
     ctx.strokeText('!', x + h * 0.16, topY + h * 0.06 - bounce);
     ctx.fillText('!', x + h * 0.16, topY + h * 0.06 - bounce);
-  } else if (emo.kind === 'reveur') {
+  } else if (emo.kind === 'songeuse' || emo.kind === 'nostalgique') {
     // Une petite bulle qui monte : on est ailleurs.
     for (let i = 0; i < 3; i++) {
       const p = (t * 0.22 + i * 0.33) % 1;

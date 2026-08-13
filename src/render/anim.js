@@ -125,7 +125,7 @@ export function updateRig(person, poseName, poseFn, t, dt, emo) {
     rig.blink -= step;
     target.eye = 0;
   }
-  if (emo.kind === 'dort') target.eye = 0;
+  if (emo.kind === 'endormie' || emo.kind === 'dort') target.eye = 0;
 
   // --- Coups d'œil : la tête tourne toute seule de temps en temps ---
   rig.nextGlance -= step;
@@ -167,113 +167,116 @@ export function updateRig(person, poseName, poseFn, t, dt, emo) {
 }
 
 /**
- * Les douze expressions de la charte.
+ * Les quarante expressions de l'asset bible.
  *
  * Chacune n'est qu'un jeu de valeurs sur quatre canaux — sourcils, coin
  * interne du sourcil, courbe de la bouche, ouverture — plus parfois un
- * mouvement de tête. C'est peu, et c'est justement pour ça que ça marche :
- * le lissage les enchaîne sans qu'aucune transition soit écrite.
+ * mouvement de tête ou de paupière. C'est peu, et c'est justement pour ça
+ * que ça marche : le lissage les enchaîne sans qu'aucune transition soit
+ * écrite, et passer de « fière » à « honteuse » prend une demi-seconde.
+ *
+ * Le tableau est une donnée, pas un `switch` : ajouter une expression, c'est
+ * ajouter une ligne, et tools/test-anim.js vérifie qu'elles sont toutes
+ * distinctes les unes des autres.
  */
+export const EXPRESSIONS = {
+  // brow : sourcils hauts (+) ou froncés (−)
+  // browInner : coin interne relevé (+ tristesse) ou baissé (− colère)
+  // mouth : sourire (+) ou moue (−)   ·   open : bouche ouverte
+  // eye : plafond d'ouverture des paupières ·  tilt / turn : tête
+  // shake : tremblement rapide  ·  wobble : flottement lent
+  neutre: { brow: 0, mouth: 0.32 },
+
+  // --- Ce qui va bien ---
+  heureuse: { brow: 0.55, mouth: 1, open: 0.35 },
+  rire: { brow: 0.7, mouth: 1, open: 0.75, tilt: -0.12, eye: 0.35 },
+  fou_rire: { brow: 0.85, mouth: 1, open: 0.95, tilt: -0.24, eye: 0.1, shake: 8 },
+  amusee: { brow: 0.5, browInner: -0.15, mouth: 0.85, tilt: -0.05, eye: 0.65 },
+  euphorique: { brow: 0.95, mouth: 1, open: 0.8, tilt: -0.16, shake: 5 },
+  fiere: { brow: 0.4, browInner: -0.3, mouth: 0.7, tilt: -0.14, eye: 0.9 },
+  soulagee: { brow: 0.3, browInner: 0.3, mouth: 0.5, open: 0.25, tilt: 0.08, eye: 0.55 },
+  attendrie: { brow: 0.45, browInner: 0.5, mouth: 0.6, tilt: 0.14, eye: 0.72 },
+  amoureuse: { brow: 0.7, browInner: 0.4, mouth: 0.8, tilt: 0.07, eye: 0.8 },
+  timide: { brow: 0.5, browInner: 0.6, mouth: 0.25, tilt: 0.2, turn: 0.5, eye: 0.6 },
+  nostalgique: { brow: 0.45, browInner: 0.55, mouth: 0.3, tilt: 0.16, turn: 0.4, eye: 0.7 },
+
+  // --- Ce qui se passe dans la tête ---
+  songeuse: { brow: 0.4, browInner: 0.25, mouth: 0.35, tilt: 0.1, turn: 0.35, eye: 0.8 },
+  concentree: { brow: -0.5, browInner: -0.1, mouth: -0.05, tilt: 0.08, eye: 0.85 },
+  determinee: { brow: -0.7, browInner: -0.2, mouth: -0.05, tilt: -0.06, eye: 1 },
+  curieuse: { brow: 0.65, browInner: -0.1, mouth: 0.2, tilt: 0.18, turn: -0.3 },
+  confuse: { brow: 0.5, browInner: -0.5, mouth: -0.1, tilt: 0.24, turn: -0.2 },
+  douteuse: { brow: -0.2, browInner: -0.4, mouth: -0.15, turn: 0.3, eye: 0.75 },
+  suspicieuse: { brow: -0.15, browInner: -0.75, mouth: -0.15, turn: 0.3, tilt: 0.05, eye: 0.72 },
+  ennui: { brow: 0.1, browInner: 0.2, mouth: -0.2, tilt: 0.22, turn: 0.3, eye: 0.6 },
+
+  // --- Ce qui surprend ---
+  surprise: { brow: 1, browInner: -0.2, mouth: 0.1, open: 0.65, tilt: -0.06 },
+  choquee: { brow: 1, browInner: 0.5, mouth: -0.3, open: 0.85, tilt: -0.1, lean: -0.14 },
+
+  // --- Ce qui fâche ---
+  irritee: { brow: -0.7, browInner: -0.6, mouth: -0.4, turn: -0.1 },
+  colere: { brow: -1, browInner: -1, mouth: -0.5, open: 0.55, tilt: 0.06, shake: 14 },
+  menace: { brow: -0.9, browInner: -0.9, mouth: -0.2, turn: -0.15, eye: 0.75 },
+  mepris: { brow: -0.3, browInner: -0.6, mouth: -0.3, tilt: -0.1, turn: 0.22, eye: 0.62 },
+  degout: { brow: -0.5, browInner: -0.2, mouth: -0.75, turn: 0.28, eye: 0.55 },
+  jalousie: { brow: -0.6, browInner: -0.5, mouth: -0.35, turn: 0.42, eye: 0.7 },
+
+  // --- Ce qui fait mal ---
+  triste: { brow: 0.3, browInner: 1, mouth: -0.7, tilt: 0.12 },
+  honteuse: { brow: 0.4, browInner: 0.8, mouth: -0.4, tilt: 0.3, eye: 0.35 },
+  resignee: { brow: 0.2, browInner: 0.45, mouth: -0.5, tilt: 0.2, turn: -0.18, eye: 0.5 },
+  inquiete: { brow: 0.6, browInner: 0.7, mouth: -0.35, turn: 0.2 },
+  stressee: { brow: -0.35, browInner: 0.7, mouth: -0.2, wobble: 0.35 },
+  peur: { brow: 1, browInner: 0.9, mouth: -0.6, open: 0.4, turn: 0.12, shake: 9 },
+  panique: { brow: 1, browInner: 1, mouth: -0.8, open: 0.9, eye: 1, shake: 16 },
+
+  // --- Ce qui use le corps ---
+  fatiguee: { brow: 0.2, browInner: 0.5, mouth: -0.25, tilt: 0.14, eye: 0.45 },
+  assoupie: { brow: 0.1, browInner: 0.15, mouth: 0.05, open: 0.2, tilt: 0.28, eye: 0.08 },
+  endormie: { brow: 0.1, mouth: 0.1, open: 0.25, eye: 0 },
+  malade: { brow: 0.15, browInner: 0.7, mouth: -0.5, tilt: 0.18, eye: 0.4 },
+  ivre: { brow: 0.35, browInner: -0.3, mouth: 0.6, open: 0.3, tilt: 0.26, eye: 0.4, wobble: 0.9 },
+};
+
+/**
+ * Les noms que la simulation emploie, ramenés aux visages ci-dessus.
+ * Le monde parle en états — « il dort », « il est stressé » — et l'asset
+ * bible parle en visages. Cette table est le seul endroit où les deux se
+ * rencontrent, donc renommer un état ne casse jamais un visage.
+ */
+export const EXPRESSION_ALIAS = {
+  content: 'heureuse', joyeux: 'heureuse', energique: 'euphorique',
+  amoureux: 'amoureuse', reveur: 'songeuse', surpris: 'surprise',
+  choque: 'choquee', effraye: 'peur', stresse: 'stressee',
+  mefiant: 'suspicieuse', fatigue: 'fatiguee', dort: 'endormie',
+};
+
+export function expressionOf(kind) {
+  return EXPRESSIONS[kind] ?? EXPRESSIONS[EXPRESSION_ALIAS[kind]] ?? EXPRESSIONS.neutre;
+}
+
 function applyEmotion(target, emo, t) {
-  switch (emo.kind) {
-    case 'colere':
-      target.brow = -1;
-      target.browInner = -1;
-      target.mouth = -0.5;
-      target.mouthOpen = 0.55 + Math.sin(t * 14) * 0.25;
-      target.headTilt += 0.06;
-      break;
-    case 'triste':
-      target.brow = 0.3;
-      target.browInner = 1;
-      target.mouth = -0.7;
-      target.headTilt += 0.12;
-      break;
-    case 'stresse':
-      target.brow = -0.35;
-      target.browInner = 0.7;
-      target.mouth = -0.2;
-      target.headTurn += Math.sin(t * 3.5) * 0.18;
-      break;
-    case 'content':
-    case 'joyeux':
-      target.brow = 0.55;
-      target.mouth = 1;
-      target.mouthOpen = 0.35;
-      break;
-    case 'amoureux':
-      target.brow = 0.7;
-      target.browInner = 0.4;
-      target.mouth = 0.8;
-      target.headTilt += Math.sin(t * 0.8) * 0.07;
-      break;
-    case 'dort':
-      target.brow = 0.1;
-      target.mouth = 0.1;
-      target.mouthOpen = 0.25 + Math.sin(t * 0.9) * 0.12;
-      break;
-    case 'surpris':
-      // Sourcils au plafond, yeux ronds, bouche en O.
-      target.brow = 1;
-      target.browInner = -0.2;
-      target.mouth = 0.1;
-      target.mouthOpen = 0.65;
-      target.headTilt -= 0.06;
-      break;
-    case 'choque':
-      // La surprise, mais en arrière : le buste recule.
-      target.brow = 1;
-      target.browInner = 0.5;
-      target.mouth = -0.3;
-      target.mouthOpen = 0.85;
-      target.lean -= 0.14;
-      target.headTilt -= 0.1;
-      break;
-    case 'effraye':
-      target.brow = 1;
-      target.browInner = 0.9;
-      target.mouth = -0.6;
-      target.mouthOpen = 0.4;
-      target.headTurn += Math.sin(t * 9) * 0.12;
-      target.lean -= 0.08;
-      break;
-    case 'mefiant':
-      // Un sourcil plus haut que l'autre, bouche de travers, regard en biais.
-      target.brow = -0.15;
-      target.browInner = -0.75;
-      target.mouth = -0.15;
-      target.headTurn += 0.3;
-      target.headTilt += 0.05;
-      target.eye = Math.min(target.eye, 0.72);
-      break;
-    case 'reveur':
-      target.brow = 0.4;
-      target.browInner = 0.25;
-      target.mouth = 0.35;
-      target.headTilt += 0.1 + Math.sin(t * 0.5) * 0.05;
-      target.headTurn += Math.sin(t * 0.31) * 0.35;
-      target.eye = Math.min(target.eye, 0.8);
-      break;
-    case 'energique':
-      target.brow = 0.75;
-      target.mouth = 1;
-      target.mouthOpen = 0.5 + Math.sin(t * 6) * 0.2;
-      target.squash *= 1 + Math.sin(t * 6) * 0.012;
-      break;
-    case 'fatigue':
-      // Paupières lourdes, tête qui pique du nez, bâillement de temps en temps.
-      target.brow = 0.2;
-      target.browInner = 0.5;
-      target.mouth = -0.25;
-      target.headTilt += 0.14 + Math.sin(t * 0.6) * 0.06;
-      target.eye = Math.min(target.eye, 0.45);
-      if (Math.sin(t * 0.28) > 0.96) target.mouthOpen = 0.9;
-      break;
-    default:
-      // Même au repos, une bouche parfaitement droite fait masque. Un
-      // soupçon de courbe suffit à ce que quelqu'un habite le visage.
-      target.mouth = 0.32;
-      break;
+  const e = expressionOf(emo.kind);
+  target.brow = e.brow ?? 0;
+  target.browInner = e.browInner ?? 0;
+  target.mouth = e.mouth ?? 0;
+  if (e.open !== undefined) target.mouthOpen = e.open;
+  if (e.eye !== undefined) target.eye = Math.min(target.eye, e.eye);
+  if (e.tilt) target.headTilt += e.tilt;
+  if (e.turn) target.headTurn += e.turn;
+  if (e.lean) target.lean += e.lean;
+
+  // Deux modulations, et c'est ce qui sépare une grimace figée de quelqu'un
+  // qui ressent quelque chose : le tremblement (colère, peur, fou rire) et
+  // le flottement (ivresse, stress).
+  if (e.shake) {
+    target.mouthOpen = (target.mouthOpen ?? 0) + Math.sin(t * e.shake) * 0.2;
+    target.headTilt += Math.sin(t * e.shake * 0.7) * 0.02;
+  }
+  if (e.wobble) {
+    target.headTurn += Math.sin(t * 3.5) * 0.18 * e.wobble;
+    target.headTilt += Math.sin(t * 2.1) * 0.1 * e.wobble;
   }
 }
 
@@ -851,6 +854,251 @@ export const POSES = {
     bob: Math.sin(t * 11) * 0.0025,
   }),
 
+  jardiner: (t) => {
+    // Accroupi devant les plantes du balcon, une main qui gratte la terre.
+    const gratte = Math.sin(t * 3.4);
+    return {
+      sit: 0.75, bob: -0.05, lean: 0.3, headTilt: 0.3,
+      armR: 1.05 + gratte * 0.18, elbowR: -1.6,
+      armL: -0.7, elbowL: 1.3,
+      handR: 0.15, handL: 0.45,
+    };
+  },
+
+  arroser: (t) => ({
+    // Bras tendu, arrosoir penché : le poignet fait tout le travail.
+    armR: 1.35, elbowR: -0.55,
+    armL: -0.4, elbowL: 0.5,
+    lean: 0.08, headTilt: 0.12,
+    handR: 0.05, handL: 0.2,
+    squash: 1 + Math.sin(t * 1.2) * 0.006,
+  }),
+
+  repasser: (t) => {
+    // Va-et-vient horizontal, épaule qui suit, buste immobile.
+    const va = Math.sin(t * 2.6);
+    return {
+      armR: 1.15 + va * 0.28, elbowR: -1.15 - va * 0.2,
+      armL: -0.55, elbowL: 0.9,
+      lean: 0.2, headTilt: 0.22,
+      handR: 0.05, handL: 0.3,
+      twist: va * 0.07,
+    };
+  },
+
+  vaisselle: (t) => {
+    // Devant l'évier : les deux mains basses, les épaules qui frottent.
+    const frotte = Math.sin(t * 5);
+    return {
+      armL: -0.75 + frotte * 0.12, armR: 0.8 - frotte * 0.12,
+      elbowL: 1.5, elbowR: -1.5,
+      lean: 0.18, headTilt: 0.24,
+      handL: 0.2, handR: 0.2,
+      twist: frotte * 0.05,
+    };
+  },
+
+  balcon: (t) => ({
+    // Accoudé à la rambarde, penché vers la rue. Presque immobile, mais
+    // pas tout à fait : on regarde à droite, puis à gauche.
+    armL: -0.45, armR: 0.45,
+    elbowL: 1.75, elbowR: -1.75,
+    lean: 0.14,
+    headTurn: Math.sin(t * 0.28) * 0.4,
+    handL: 0.35, handR: 0.35,
+    squash: 1 + Math.sin(t * 1.05) * 0.009,
+  }),
+
+  frapper_porte: (t) => {
+    // Trois coups, une pause, trois coups. Personne ne frappe en continu.
+    const cycle = (t * 0.55) % 1;
+    const coup = cycle < 0.45 ? Math.abs(Math.sin(cycle * Math.PI * 6)) : 0;
+    return {
+      armR: 2.6 - coup * 0.35, elbowR: -3.4 + coup * 0.5,
+      armL: -0.35, elbowL: 0.4,
+      lean: 0.08 + coup * 0.04,
+      handR: 0, handL: 0.25,
+      headTilt: 0.05,
+    };
+  },
+
+  saluer: (t) => ({
+    // La main levée qui balaie. Le geste le plus reconnaissable du monde.
+    armR: 2.75, elbowR: -0.55 + Math.sin(t * 5.5) * 0.42,
+    armL: -0.4, elbowL: 0.4,
+    handR: 1, handL: 0.3,
+    lean: 0.03, headTilt: -0.05,
+    mouth: 0.8,
+  }),
+
+  applaudir: (t) => {
+    // Les mains se rejoignent au centre, vite.
+    const clap = Math.abs(Math.sin(t * 7));
+    return {
+      armL: -1.15, armR: 1.15,
+      elbowL: 2.0 + clap * 0.3, elbowR: -2.0 - clap * 0.3,
+      handL: 0.1, handR: 0.1,
+      lean: -0.04, headTilt: -0.06,
+      squash: 1 + clap * 0.012,
+    };
+  },
+
+  hausser_epaules: (t, person, rig) => {
+    // « J'en sais rien. » Les épaules montent, les paumes s'ouvrent.
+    const k = Math.min(1, rig.poseAge / 0.5);
+    return {
+      armL: -1.0 * k, armR: 1.0 * k,
+      elbowL: 1.75 * k, elbowR: -1.75 * k,
+      handL: 1, handR: 1,
+      squash: 1 - 0.02 * k,
+      headTilt: 0.12 * k,
+      mouth: -0.1,
+    };
+  },
+
+  croiser_bras: (t) => ({
+    // Bras croisés sur la poitrine : fermé, et ça se voit de loin.
+    armL: -1.25, armR: 1.25,
+    elbowL: 2.5, elbowR: -2.5,
+    handL: 0.05, handR: 0.05,
+    lean: -0.04,
+    squash: 1 + Math.sin(t * 1.1) * 0.007,
+  }),
+
+  pointer: (t) => ({
+    // Le doigt tendu vers l'autre. Rarement amical.
+    armR: 1.75, elbowR: -0.35,
+    armL: -0.4, elbowL: 0.55,
+    handR: 0.15, handL: 0.4,
+    lean: 0.12, headTurn: -0.25,
+    twist: -0.08,
+    mouthOpen: 0.3 + Math.sin(t * 9) * 0.2,
+  }),
+
+  chercher: (t) => {
+    // On a perdu quelque chose : on soulève, on se penche, on recommence.
+    const balayage = Math.sin(t * 0.9);
+    return {
+      lean: 0.34 + Math.abs(balayage) * 0.08,
+      headTilt: 0.3,
+      headTurn: balayage * 0.5,
+      armR: 1.15, elbowR: -1.5,
+      armL: -0.8, elbowL: 1.1,
+      handL: 0.6, handR: 0.6,
+      twist: balayage * 0.12,
+    };
+  },
+
+  soulever: (t, person, rig) => {
+    // Plier les genoux, pas le dos. Personne ne fait ça, mais il le faudrait.
+    const k = Math.min(1, rig.poseAge / 0.8);
+    return {
+      sit: 0.4 * (1 - k),
+      bob: -0.035 * (1 - k),
+      lean: 0.3 - k * 0.22,
+      armL: -0.9, armR: 0.9,
+      elbowL: 1.9, elbowR: -1.9,
+      handL: 0, handR: 0,
+      squash: 0.95 + k * 0.05,
+      headTilt: 0.1,
+    };
+  },
+
+  tomber: (t, person, rig) => {
+    // La chute : bras en moulinet, buste en arrière, et on se retrouve
+    // assis par terre. Ça dure une seconde et demie, pas plus.
+    const k = Math.min(1, rig.poseAge / 1.4);
+    return {
+      sit: k,
+      bob: -0.02 * k,
+      lean: -0.4 * (1 - k) + 0.12 * k,
+      armL: -2.4 + k * 1.4, armR: 2.4 - k * 1.4,
+      elbowL: 0.4, elbowR: -0.4,
+      handL: 1, handR: 1,
+      legL: 0.5 * (1 - k), legR: -0.35 * (1 - k),
+      headTilt: -0.2 * (1 - k),
+    };
+  },
+
+  sursauter: (t, person, rig) => {
+    // Tout le corps se rétracte d'un coup, puis redescend.
+    const k = Math.min(1, rig.poseAge / 0.55);
+    const pic = Math.sin((1 - k) * Math.PI * 0.5);
+    return {
+      bob: pic * 0.05,
+      squash: 1 + pic * 0.07,
+      lean: -0.2 * pic,
+      armL: -1.5 * pic, armR: 1.5 * pic,
+      elbowL: 1.2, elbowR: -1.2,
+      handL: 1, handR: 1,
+      headTilt: -0.14 * pic,
+    };
+  },
+
+  bouder: (t) => ({
+    // Assis, bras croisés, tête tournée vers le mur. Un ado, ou pas.
+    sit: 1,
+    armL: -1.2, armR: 1.2,
+    elbowL: 2.45, elbowR: -2.45,
+    handL: 0.05, handR: 0.05,
+    lean: 0.06,
+    headTurn: 0.62,
+    headTilt: 0.08,
+    squash: 1 + Math.sin(t * 0.9) * 0.006,
+  }),
+
+  ecrire: (t) => ({
+    // Penché sur une table, la main qui court. L'autre tient la feuille.
+    sit: 1,
+    armR: 0.95, elbowR: -1.5 + Math.sin(t * 6) * 0.06,
+    armL: -0.85, elbowL: 1.6,
+    lean: 0.28, headTilt: 0.34,
+    handR: 0.1, handL: 0.3,
+    eye: 0.8,
+  }),
+
+  etendre_linge: (t) => {
+    // Les deux bras en l'air, une pince à la fois.
+    const pince = (t * 0.7) % 1;
+    const haut = Math.sin(Math.min(1, pince * 1.6) * Math.PI);
+    return {
+      armL: -1.2 - haut * 1.1, armR: 1.2 + haut * 1.1,
+      elbowL: 0.9 - haut * 0.5, elbowR: -0.9 + haut * 0.5,
+      handL: 0.2, handR: 0.2,
+      lean: -0.06 - haut * 0.05,
+      headTilt: -0.12 - haut * 0.08,
+      bob: haut * 0.012,
+    };
+  },
+
+  bercer: (t) => {
+    // Un bébé dans les bras, et ce balancement qu'on ne décide pas.
+    const berce = Math.sin(t * 1.3);
+    return {
+      armL: -0.95, armR: 0.95,
+      elbowL: 2.05, elbowR: -2.05,
+      handL: 0.1, handR: 0.1,
+      lean: berce * 0.09,
+      twist: berce * 0.06,
+      headTilt: 0.2 + berce * 0.04,
+      squash: 1 + Math.sin(t * 1.3) * 0.008,
+      mouth: 0.5,
+    };
+  },
+
+  compter_sous: (t) => {
+    // Les billets qu'on recompte, au cas où. Ça ne change jamais rien.
+    const feuille = Math.sin(t * 4.2);
+    return {
+      sit: 1,
+      armL: -0.7, armR: 0.75 + feuille * 0.08,
+      elbowL: 1.85, elbowR: -1.95,
+      handL: 0.15, handR: 0.45,
+      lean: 0.22, headTilt: 0.3,
+      eye: 0.75,
+    };
+  },
+
   releve: (t, person, rig) => {
     // Se relever : on pousse sur les mains, le buste part en avant, puis on
     // se déplie. La pose dure le temps que le lissage mette à la quitter.
@@ -867,51 +1115,96 @@ export const POSES = {
   },
 };
 
-/** La pose visée pour ce que fait l'habitant en ce moment. */
+/**
+ * La pose visée pour ce que fait l'habitant en ce moment.
+ *
+ * Une action ne donne pas une pose, elle donne une FAMILLE de poses : on ne
+ * fait pas le ménage de la même façon si on repasse, si on fait la
+ * vaisselle ou si on étend du linge. Le choix à l'intérieur d'une famille
+ * est stable — dérivé de l'identifiant — pour qu'un habitant garde ses
+ * habitudes au lieu de changer de geste toutes les cinq secondes.
+ */
 export function poseFor(person) {
   if (person.walking) return person.running ? 'courir' : 'marche';
+
+  // Un sursaut se voit dans tout le corps, pas seulement sur le visage.
+  const s = person._startle;
+  if (s && s.ttl > s.max - 0.6) return 'sursauter';
+
   const id = person.action?.id ?? 'rien';
+  // Un habitant sans identifiant, ça n'existe pas dans le jeu — mais ça
+  // existe dans les tests et les planches. Sans ce garde-fou, `n % k` vaut
+  // NaN et la pose renvoyée est `undefined`.
+  const n = Number.isFinite(person.id) ? person.id : 0;
   const mood = person.mood ?? 60;
+  const P = person.personality;
+  const trait = (t) => P?.has?.(t) === true;
+  const parmi = (...v) => v[n % v.length];
+
   switch (id) {
     case 'dormir':
     case 'soigner': return 'couche';
-    case 'insomnie': return 'insomnie';
+    case 'insomnie': return parmi('insomnie', 'balcon', 'insomnie');
     case 'manger': return 'mange';
     case 'cuisiner': return 'cuisine';
     case 'douche': return 'douche';
-    case 'menage': return 'menage';
+
+    // Le ménage se décline : balai, vaisselle, repassage, linge à étendre.
+    case 'menage': return parmi('menage', 'vaisselle', 'repasser', 'etendre_linge');
+
     // Épuisé devant la télé, on finit allongé sur le canapé.
     case 'tv': return (person.needs?.get?.('energie') ?? 70) < 28 ? 'allonge' : 'avachi';
+
     // On n'écoute pas tous la musique pareil : les expansifs dansent,
     // les autres hochent la tête, casque sur les oreilles.
     case 'musique':
-      return (person.personality?.get?.('extraversion') ?? 0.5) > 0.45 ? 'danse' : 'assis';
-    case 'fete': return person.id % 3 === 0 ? 'rit' : 'danse';
-    case 'betise': return 'danse';
+      return (P?.get?.('extraversion') ?? 0.5) > 0.45 ? 'danse' : 'assis';
+    case 'fete': return parmi('danse', 'rit', 'applaudir', 'danse');
+    case 'betise': return parmi('danse', 'tomber', 'danse');
     case 'jeu': return person.age < 12 ? 'assis_sol' : 'joue';
-    case 'lire': return 'lecture';
-    case 'sport': return 'sport';
-    case 'bricoler': return 'bricole';
-    case 'teletravail':
-    case 'chercher_emploi': return 'bureau';
+    case 'lire': return parmi('lecture', 'lecture', 'ecrire');
+    case 'sport': return parmi('sport', 'soulever');
+    case 'bricoler': return parmi('bricole', 'soulever', 'bricole');
+    case 'teletravail': return parmi('bureau', 'ecrire');
+    case 'chercher_emploi': return parmi('bureau', 'chercher');
+
     // Un appel sur deux se passe l'écran sous le nez, pas à l'oreille.
-    case 'telephoner': return person.id % 2 === 0 ? 'scroll' : 'telephone';
-    case 'espionner': return 'fenetre';
-    // Ruminer devient pleurer quand le moral est vraiment au fond.
-    case 'ruminer': return mood < 22 ? 'pleure' : 'reflechit';
-    case 'boire': return 'boit';
-    case 'visiter': return 'discute';
-    case 'reconcilier':
-    case 'famille_temps': return 'ecoute';
+    case 'telephoner': return n % 2 === 0 ? 'scroll' : 'telephone';
+    case 'espionner': return parmi('fenetre', 'balcon');
+    case 'courses': return 'courses';
+    case 'promener': return parmi('balcon', 'jardiner', 'arroser');
+
+    // Ruminer se décline avec ce qui ronge : le moral, ou les fins de mois.
+    case 'ruminer':
+      if (mood < 22) return 'pleure';
+      return (person.debt ?? 0) > 800 ? 'compter_sous' : 'reflechit';
+    case 'boire': return (person.addiction ?? 0) > 0.45 ? 'boit' : parmi('boit', 'compter_sous');
+
+    // On frappe avant d'entrer. Puis on discute.
+    case 'visiter': return parmi('frapper_porte', 'discute', 'discute', 'saluer');
+    case 'reconcilier': return parmi('ecoute', 'hausser_epaules', 'ecoute');
+    case 'famille_temps':
+      return trait('protecteur') && person.age < 45 ? parmi('bercer', 'ecoute') : 'ecoute';
     case 'flirter': return 'embrasse';
-    case 'confronter':
-    case 'plaindre': return 'colere';
-    default:
-      // Sans occupation : la peur si le stress déborde, la clope si le
-      // corps la réclame, sinon le repos.
+    case 'sortir': return parmi('saluer', 'marche', 'courses');
+    case 'ecole': return parmi('ecrire', 'assis');
+    case 'travailler': return parmi('bureau', 'porte', 'ecrire');
+
+    case 'confronter': return parmi('colere', 'pointer', 'bagarre');
+    case 'plaindre': return parmi('colere', 'frapper_porte', 'pointer');
+
+    default: {
+      // Sans occupation, c'est le caractère et l'état qui décident.
       if ((person.stress ?? 20) > 85) return 'peur';
       if ((person.addiction ?? 0) > 0.5 && person.age >= 18) return 'fume';
-      return 'idle';
+      if (person.age >= 12 && person.age < 20 && mood < 45) return 'bouder';
+      if (trait('anxieux') || trait('rancunier')) return 'croiser_bras';
+      if (trait('curieux')) return parmi('balcon', 'chercher', 'idle');
+      if (trait('patient')) return parmi('jardiner', 'arroser', 'idle');
+      if (person.age < 12) return parmi('assis_sol', 'idle');
+      if (person.isOld) return parmi('balcon', 'idle', 'allonge');
+      return parmi('idle', 'idle', 'balcon', 'hausser_epaules');
+    }
   }
 }
 

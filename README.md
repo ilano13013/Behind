@@ -310,7 +310,7 @@ l'immeuble dans le même sens. La lune est pleine tous les trente jours. Et
 une fois par décennie environ, le ciel prend une couleur dont personne ne
 reparle le lendemain.
 
-### Comment un corps est construit### Comment un corps est construit
+### Comment un corps est construit
 
 Un membre entier est **un seul tracé**. C'est la règle qui décide de tout :
 tant que la cuisse et le mollet étaient deux capsules autonomes, chaque
@@ -354,22 +354,30 @@ poids d'une jambe sur l'autre, et une posture de repos différente pour
 chaque habitant — personne ne se tient droit comme un i. Quand quelqu'un
 parle, la bouche s'anime et les mains accompagnent.
 
-Quarante poses couvrent les actions : marche à cycle complet (bras et
+Soixante poses couvrent les actions : marche à cycle complet (bras et
 jambes opposés, double rebond), course avec les deux pieds en l'air au
-passage, touiller une casserole, porter la fourchette à la bouche, boire,
-donner un coup de balai, danser sur deux fréquences décalées, s'énerver en
-tremblant, pianoter, téléphoner, discuter avec les mains, écouter en
-hochant la tête, embrasser, jouer à la manette, réfléchir le menton dans la
-main, pleurer le visage dans les mains, rire la tête en arrière, avoir peur,
-se battre en garde de boxeur, fumer, faire défiler son téléphone, porter un
-carton, rentrer les courses, s'asseoir par terre, s'allonger, se réveiller
-en bâillant, s'habiller à cloche-pied, conduire, se relever.
+passage, cuisiner, manger, boire, fumer, faire la vaisselle, repasser,
+étendre le linge, jardiner, arroser, porter un carton, rentrer les courses,
+soulever, bricoler, écrire, lire, pianoter, faire défiler son téléphone,
+téléphoner, discuter avec les mains, écouter en hochant la tête, saluer,
+applaudir, hausser les épaules, croiser les bras, pointer du doigt, frapper
+à une porte, chercher quelque chose, s'accouder au balcon, danser, rire,
+pleurer, embrasser, se battre en garde de boxeur, bouder, sursauter, tomber,
+avoir peur, bercer, recompter ses sous, s'asseoir par terre, s'allonger,
+se réveiller en bâillant, s'habiller à cloche-pied, conduire, se relever.
 
-Toutes ne sont pas jouées par tout le monde de la même façon : les
-expansifs dansent sur la musique, les autres hochent la tête ; un enfant
-joue par terre, un adulte sur le canapé ; un appel sur deux se passe
-l'écran sous le nez plutôt qu'à l'oreille ; ruminer devient pleurer quand
-le moral tombe vraiment.
+Une action ne donne pas une pose, elle donne une **famille** de poses : on
+ne fait pas le ménage de la même façon si on repasse, si on fait la
+vaisselle ou si on étend du linge. Le choix à l'intérieur d'une famille est
+stable — dérivé de l'identifiant — pour qu'un habitant garde ses habitudes
+au lieu de changer de geste toutes les cinq secondes. Les expansifs dansent
+sur la musique, les autres hochent la tête ; un enfant joue par terre, un
+adulte sur le canapé ; ruminer devient pleurer quand le moral tombe, et
+recompter ses sous quand ce sont les dettes qui rongent.
+
+`npm test` vérifie que les soixante sont **toutes atteignables** : une pose
+qu'aucun état du monde ne déclenche est du code mort déguisé en
+fonctionnalité.
 
 Les poses « main au visage » ne sont pas réglées à l'estime : l'épaule et le
 coude sont **résolus** pour que le poignet arrive devant la bouche ou à
